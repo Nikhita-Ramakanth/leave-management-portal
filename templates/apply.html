@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Apply for Leave</title>
+</head>
+<body>
+    <h1>Apply for Leave</h1>
+
+    <form method="POST">
+        <label for="name">Employee Name:</label><br>
+        <input type="text" id="name" name="name" required><br><br>
+
+        <label for="leave_type">Leave Type:</label><br>
+        <select id="leave_type" name="leave_type">
+            <option value="Sick">Sick Leave</option>
+            <option value="Casual">Casual Leave</option>
+            <option value="Annual">Annual Leave</option>
+        </select><br><br>
+
+        <label for="start_date">Start Date:</label><br>
+        <input type="date" id="start_date" name="start_date" required><br><br>
+
+        <label for="end_date">End Date:</label><br>
+        <input type="date" id="end_date" name="end_date" required><br><br>
+
+        <label for="reason">Reason:</label><br>
+        <textarea id="reason" name="reason" rows="3"></textarea><br><br>
+
+        <button type="submit">Submit Request</button>
+    </form>
+
+    <br>
+    <a href="/">Back to Home</a>
+</body>
+</html>
