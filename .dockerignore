@@ -1,3 +1,6 @@
 venv/
 leave.db
 instance/
+__pycache__/
+*.pyc
+.git/
