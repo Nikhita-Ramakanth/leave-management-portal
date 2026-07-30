@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leave-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: leave-app
+  template:
+    metadata:
+      labels:
+        app: leave-app
+    spec:
+      containers:
+        - name: leave-app
+          image: nikhitaramakanth/leave-management-portal:latest
+          env:
+            - name: DATABASE_URL
+              value: postgresql://leaveuser:leavepass@postgres:5432/leavedb
+          ports:
+            - containerPort: 5000
