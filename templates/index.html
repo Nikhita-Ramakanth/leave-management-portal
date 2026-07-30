@@ -11,6 +11,13 @@
         <a href="/">Home</a> |
         <a href="/apply">Apply for Leave</a>
         <a href="/requests">View All Requests</a>
+        {% if current_user.is_authenticated %}
+        Welcome, {{ current_user.name }} ({{ current_user.role }}) |
+        <a href="/logout">Logout</a>
+    {% else %}
+        <a href="/login">Login</a> |
+        <a href="/register">Register</a>
+    {% endif %}
     </nav>
 </body>
 </html>
