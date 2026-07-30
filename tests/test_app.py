@@ -19,15 +19,25 @@ def test_homepage_loads(client):
     assert response.status_code == 200
 
 
-def test_apply_page_loads(client):
+def test_apply_page_requires_login(client):
     response = client.get("/apply")
-    assert response.status_code == 200
+    assert response.status_code == 302
 
     from app import LeaveRequest
 
 def test_submit_leave_request(client):
-    response = client.post("/apply", data={
+    client.post("/register", data={
         "name": "Test Employee",
+        "email": "test@example.com",
+        "password": "testpass123",
+        "role": "Employee"
+    })
+    client.post("/login", data={
+        "email": "test@example.com",
+        "password": "testpass123"
+    })
+
+    response = client.post("/apply", data={
         "leave_type": "Sick",
         "start_date": "2026-08-01",
         "end_date": "2026-08-03",
@@ -36,7 +46,7 @@ def test_submit_leave_request(client):
 
     assert response.status_code == 200
 
-    saved = LeaveRequest.query.filter_by(name="Test Employee").first()
+    saved = LeaveRequest.query.filter_by(leave_type="Sick").first()
     assert saved is not None
-    assert saved.leave_type == "Sick"
     assert saved.status == "Pending"
+    assert saved.user.name == "Test Employee"

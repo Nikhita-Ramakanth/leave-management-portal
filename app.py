@@ -1,7 +1,8 @@
 import os
 from flask import Flask, render_template, request, redirect
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, login_user, logout_user, UserMixin
+from flask_login import LoginManager, login_user, logout_user, UserMixin, login_required, current_user
+from flask_login import login_required, current_user
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -10,7 +11,8 @@ db = SQLAlchemy()
 
 class LeaveRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    user = db.relationship("User", backref="leave_requests")
     leave_type = db.Column(db.String(50), nullable=False)
     start_date = db.Column(db.String(20), nullable=False)
     end_date = db.Column(db.String(20), nullable=False)
@@ -25,6 +27,8 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="Employee")
+    leave_balance = db.Column(db.Integer, nullable=False, default=24)
+
 
 
 def create_app(test_config=None):
@@ -54,31 +58,50 @@ def create_app(test_config=None):
         return render_template("index.html")
 
     @app.route("/apply", methods=["GET", "POST"])
+    @login_required
     def apply():
         if request.method == "POST":
+            start = datetime.strptime(request.form["start_date"], "%Y-%m-%d")
+            end = datetime.strptime(request.form["end_date"], "%Y-%m-%d")
+            days_requested = (end - start).days + 1
+
+            if days_requested > current_user.leave_balance:
+                return f"""
+                <h2>Request Denied</h2>
+                <p>You requested {days_requested} day(s), but only have {current_user.leave_balance} day(s) remaining.</p>
+                <a href="/apply">Back</a>
+                """
+
             new_request = LeaveRequest(
-                name=request.form["name"],
+                user_id=current_user.id,
                 leave_type=request.form["leave_type"],
                 start_date=request.form["start_date"],
                 end_date=request.form["end_date"],
                 reason=request.form["reason"]
             )
+            current_user.leave_balance -= days_requested
             db.session.add(new_request)
             db.session.commit()
 
             return f"""
             <h2>Leave Request Submitted!</h2>
-            <p><b>Name:</b> {new_request.name}</p>
+            <p><b>Name:</b> {current_user.name}</p>
             <p><b>Leave Type:</b> {new_request.leave_type}</p>
             <p><b>From:</b> {new_request.start_date} <b>To:</b> {new_request.end_date}</p>
+            <p><b>Days used:</b> {days_requested}</p>
+            <p><b>Remaining balance:</b> {current_user.leave_balance}</p>
             <p><b>Status:</b> {new_request.status}</p>
             <a href="/">Back to Home</a>
             """
         return render_template("apply.html")
 
     @app.route("/requests")
+    @login_required
     def view_requests():
-        all_requests = LeaveRequest.query.all()
+        if current_user.role == "Manager":
+            all_requests = LeaveRequest.query.all()
+        else:
+            all_requests = LeaveRequest.query.filter_by(user_id=current_user.id).all()
         return render_template("requests.html", requests=all_requests)
 
     @app.route("/register", methods=["GET", "POST"])
