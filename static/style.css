@@ -95,7 +95,8 @@ a:hover { text-decoration: underline; }
   font-size: 14px;
   color: var(--ink-soft);
 }
-.nav-links a { color: var(--ink-soft); font-weight: 500; }
+.nav-links a:not(.btn) { color: var(--ink-soft); font-weight: 500; }
+.nav-links a.btn { color: #fff; }
 .nav-links a:hover { color: var(--accent); text-decoration: none; }
 .nav-spacer { flex: 1; }
 .balance-pill {
