@@ -18,8 +18,25 @@
 
         <label for="role">Role:</label><br>
         <select id="role" name="role">
-            <option value="Employee">Employee</option>
-            <option value="Manager">Manager</option>
+            {% for r in roles %}
+            <option value="{{ r }}">{{ r }}</option>
+            {% endfor %}
+        </select><br><br>
+
+        <label for="practice">Practice:</label><br>
+        <select id="practice" name="practice">
+            <option value="">— Select Practice —</option>
+            {% for p in practices %}
+            <option value="{{ p }}">{{ p }}</option>
+            {% endfor %}
+        </select><br><br>
+
+        <label for="manager_id">Reports to:</label><br>
+        <select id="manager_id" name="manager_id">
+            <option value="">— None / Top of hierarchy —</option>
+            {% for manager in managers %}
+            <option value="{{ manager.id }}">{{ manager.name }} ({{ manager.role }})</option>
+            {% endfor %}
         </select><br><br>
 
         <button type="submit">Register</button>

@@ -7,6 +7,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
 
+ROLES = ["Employee", "Manager", "Senior Manager", "Head of Practice"]
+PRACTICES = ["Human Resources", "Finance", "Development", "Testing", "Leadership"]
+
 
 def calculate_business_days(start_date_str, end_date_str):
     start = datetime.strptime(start_date_str, "%Y-%m-%d")
@@ -23,7 +26,7 @@ def calculate_business_days(start_date_str, end_date_str):
 class LeaveRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    user = db.relationship("User", backref="leave_requests")
+    user = db.relationship("User", foreign_keys=[user_id], backref="leave_requests")
     leave_type = db.Column(db.String(50), nullable=False)
     start_date = db.Column(db.String(20), nullable=False)
     end_date = db.Column(db.String(20), nullable=False)
@@ -38,8 +41,11 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), nullable=False, default="Employee")
+    role = db.Column(db.String(30), nullable=False, default="Employee")
+    practice = db.Column(db.String(50), nullable=True)
     leave_balance = db.Column(db.Integer, nullable=False, default=24)
+    manager_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    manager = db.relationship("User", remote_side=[id], backref="team_members")
 
 
 def create_app(test_config=None):
@@ -106,7 +112,7 @@ def create_app(test_config=None):
     @app.route("/requests")
     @login_required
     def view_requests():
-        if current_user.role == "Manager":
+        if current_user.team_members:
             all_requests = LeaveRequest.query.all()
         else:
             all_requests = LeaveRequest.query.filter_by(user_id=current_user.id).all()
@@ -116,16 +122,20 @@ def create_app(test_config=None):
     def register():
         if request.method == "POST":
             hashed_password = generate_password_hash(request.form["password"])
+            manager_id = request.form.get("manager_id") or None
             new_user = User(
                 name=request.form["name"],
                 email=request.form["email"],
                 password_hash=hashed_password,
-                role=request.form["role"]
+                role=request.form["role"],
+                practice=request.form.get("practice") or None,
+                manager_id=manager_id
             )
             db.session.add(new_user)
             db.session.commit()
             return redirect("/login")
-        return render_template("register.html")
+        potential_managers = User.query.filter(User.role != "Employee").all()
+        return render_template("register.html", managers=potential_managers, roles=ROLES, practices=PRACTICES)
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
@@ -145,17 +155,21 @@ def create_app(test_config=None):
     @app.route("/manage")
     @login_required
     def manage_requests():
-        if current_user.role != "Manager":
-            return "Access denied - Managers only", 403
-        pending = LeaveRequest.query.filter_by(status="Pending").all()
+        if not current_user.team_members:
+            return "Access denied - you have no team members to manage", 403
+        team_ids = [member.id for member in current_user.team_members]
+        pending = LeaveRequest.query.filter(
+            LeaveRequest.user_id.in_(team_ids),
+            LeaveRequest.status == "Pending"
+        ).all()
         return render_template("manage_requests.html", requests=pending, calc_days=calculate_business_days)
 
     @app.route("/manage/<int:request_id>/approve", methods=["POST"])
     @login_required
     def approve_request(request_id):
-        if current_user.role != "Manager":
-            return "Access denied - Managers only", 403
         leave_request = LeaveRequest.query.get_or_404(request_id)
+        if leave_request.user.manager_id != current_user.id:
+            return "Access denied - not your team member", 403
         days = calculate_business_days(leave_request.start_date, leave_request.end_date)
         leave_request.user.leave_balance -= days
         leave_request.status = "Approved"
@@ -166,9 +180,9 @@ def create_app(test_config=None):
     @app.route("/manage/<int:request_id>/reject", methods=["POST"])
     @login_required
     def reject_request(request_id):
-        if current_user.role != "Manager":
-            return "Access denied - Managers only", 403
         leave_request = LeaveRequest.query.get_or_404(request_id)
+        if leave_request.user.manager_id != current_user.id:
+            return "Access denied - not your team member", 403
         leave_request.status = "Rejected"
         leave_request.manager_comment = request.form.get("comment", "")
         db.session.commit()
