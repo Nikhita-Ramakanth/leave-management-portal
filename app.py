@@ -2,11 +2,22 @@ import os
 from flask import Flask, render_template, request, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, UserMixin, login_required, current_user
-from flask_login import login_required, current_user
-from datetime import datetime
+from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
+
+
+def calculate_business_days(start_date_str, end_date_str):
+    start = datetime.strptime(start_date_str, "%Y-%m-%d")
+    end = datetime.strptime(end_date_str, "%Y-%m-%d")
+    business_days = 0
+    current = start
+    while current <= end:
+        if current.weekday() < 5:
+            business_days += 1
+        current += timedelta(days=1)
+    return business_days
 
 
 class LeaveRequest(db.Model):
@@ -18,6 +29,7 @@ class LeaveRequest(db.Model):
     end_date = db.Column(db.String(20), nullable=False)
     reason = db.Column(db.String(300))
     status = db.Column(db.String(20), default="Pending")
+    manager_comment = db.Column(db.String(300))
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -28,7 +40,6 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="Employee")
     leave_balance = db.Column(db.Integer, nullable=False, default=24)
-
 
 
 def create_app(test_config=None):
@@ -61,9 +72,7 @@ def create_app(test_config=None):
     @login_required
     def apply():
         if request.method == "POST":
-            start = datetime.strptime(request.form["start_date"], "%Y-%m-%d")
-            end = datetime.strptime(request.form["end_date"], "%Y-%m-%d")
-            days_requested = (end - start).days + 1
+            days_requested = calculate_business_days(request.form["start_date"], request.form["end_date"])
 
             if days_requested > current_user.leave_balance:
                 return f"""
@@ -79,7 +88,6 @@ def create_app(test_config=None):
                 end_date=request.form["end_date"],
                 reason=request.form["reason"]
             )
-            current_user.leave_balance -= days_requested
             db.session.add(new_request)
             db.session.commit()
 
@@ -88,8 +96,8 @@ def create_app(test_config=None):
             <p><b>Name:</b> {current_user.name}</p>
             <p><b>Leave Type:</b> {new_request.leave_type}</p>
             <p><b>From:</b> {new_request.start_date} <b>To:</b> {new_request.end_date}</p>
-            <p><b>Days used:</b> {days_requested}</p>
-            <p><b>Remaining balance:</b> {current_user.leave_balance}</p>
+            <p><b>Business days:</b> {days_requested}</p>
+            <p><b>Current balance (unchanged until approved):</b> {current_user.leave_balance}</p>
             <p><b>Status:</b> {new_request.status}</p>
             <a href="/">Back to Home</a>
             """
@@ -102,7 +110,7 @@ def create_app(test_config=None):
             all_requests = LeaveRequest.query.all()
         else:
             all_requests = LeaveRequest.query.filter_by(user_id=current_user.id).all()
-        return render_template("requests.html", requests=all_requests)
+        return render_template("requests.html", requests=all_requests, calc_days=calculate_business_days)
 
     @app.route("/register", methods=["GET", "POST"])
     def register():
@@ -133,6 +141,38 @@ def create_app(test_config=None):
     def logout():
         logout_user()
         return redirect("/")
+
+    @app.route("/manage")
+    @login_required
+    def manage_requests():
+        if current_user.role != "Manager":
+            return "Access denied - Managers only", 403
+        pending = LeaveRequest.query.filter_by(status="Pending").all()
+        return render_template("manage_requests.html", requests=pending, calc_days=calculate_business_days)
+
+    @app.route("/manage/<int:request_id>/approve", methods=["POST"])
+    @login_required
+    def approve_request(request_id):
+        if current_user.role != "Manager":
+            return "Access denied - Managers only", 403
+        leave_request = LeaveRequest.query.get_or_404(request_id)
+        days = calculate_business_days(leave_request.start_date, leave_request.end_date)
+        leave_request.user.leave_balance -= days
+        leave_request.status = "Approved"
+        leave_request.manager_comment = request.form.get("comment", "")
+        db.session.commit()
+        return redirect("/manage")
+
+    @app.route("/manage/<int:request_id>/reject", methods=["POST"])
+    @login_required
+    def reject_request(request_id):
+        if current_user.role != "Manager":
+            return "Access denied - Managers only", 403
+        leave_request = LeaveRequest.query.get_or_404(request_id)
+        leave_request.status = "Rejected"
+        leave_request.manager_comment = request.form.get("comment", "")
+        db.session.commit()
+        return redirect("/manage")
 
     return app
 
