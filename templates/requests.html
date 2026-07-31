@@ -1,39 +1,77 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>All Leave Requests</title>
-</head>
-<body>
-    <h1>All Leave Requests</h1>
+{% extends "base.html" %}
+{% block title %}Requests — Leavepoint{% endblock %}
+{% block content %}
 
-    <table border="1" cellpadding="8">
+<div class="card">
+    <h1>My requests</h1>
+    {% if my_requests %}
+    <table>
         <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Leave Type</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>Status</th>
+            <th>Type</th>
+            <th>Dates</th>
             <th>Days</th>
-            <th>Manager Comment</th>
+            <th>Status</th>
+            <th>Manager comment</th>
             <th>Reason</th>
         </tr>
-        {% for r in requests %}
+        {% for r in my_requests %}
         <tr>
-            <td>{{ r.id }}</td>
-            <td>{{ r.user.name }}</td>
             <td>{{ r.leave_type }}</td>
-            <td>{{ r.start_date }}</td>
-            <td>{{ r.end_date }}</td>
-            <td>{{ r.status }}</td>
+            <td>{{ r.start_date }} → {{ r.end_date }}</td>
             <td>{{ calc_days(r.start_date, r.end_date) }}</td>
+            <td>
+                {% if r.status == "Pending" %}
+                <span class="badge badge-pending">Pending</span>
+                {% elif r.status == "Approved" %}
+                <span class="badge badge-approved">Approved</span>
+                {% else %}
+                <span class="badge badge-rejected">Rejected</span>
+                {% endif %}
+            </td>
             <td>{{ r.manager_comment or "—" }}</td>
-            <td>{{ r.reason }}</td>
+            <td>{{ r.reason or "—" }}</td>
         </tr>
         {% endfor %}
     </table>
+    {% else %}
+    <p class="muted">You haven't submitted any leave requests yet.</p>
+    {% endif %}
+</div>
 
-    <br>
-    <a href="/">Back to Home</a>
-</body>
-</html>
+{% if team_requests %}
+<div class="card">
+    <h1>Team requests</h1>
+    <table>
+        <tr>
+            <th>Employee</th>
+            <th>Type</th>
+            <th>Dates</th>
+            <th>Days</th>
+            <th>Status</th>
+            <th>Manager comment</th>
+            <th>Reason</th>
+        </tr>
+        {% for r in team_requests %}
+        <tr>
+            <td>{{ r.user.name }}</td>
+            <td>{{ r.leave_type }}</td>
+            <td>{{ r.start_date }} → {{ r.end_date }}</td>
+            <td>{{ calc_days(r.start_date, r.end_date) }}</td>
+            <td>
+                {% if r.status == "Pending" %}
+                <span class="badge badge-pending">Pending</span>
+                {% elif r.status == "Approved" %}
+                <span class="badge badge-approved">Approved</span>
+                {% else %}
+                <span class="badge badge-rejected">Rejected</span>
+                {% endif %}
+            </td>
+            <td>{{ r.manager_comment or "—" }}</td>
+            <td>{{ r.reason or "—" }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+
+{% endblock %}

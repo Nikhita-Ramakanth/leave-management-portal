@@ -86,14 +86,15 @@ def create_app(test_config=None):
     @login_required
     def apply():
         if request.method == "POST":
+            if request.form["end_date"] < request.form["start_date"]:
+                return "End date cannot be before start date", 400
             days_requested = calculate_business_days(request.form["start_date"], request.form["end_date"])
-
             if days_requested > current_user.leave_balance:
-                return f"""
-                <h2>Request Denied</h2>
-                <p>You requested {days_requested} day(s), but only have {current_user.leave_balance} day(s) remaining.</p>
-                <a href="/apply">Back</a>
-                """
+                return render_template(
+                    "apply_denied.html",
+                    days_requested=days_requested,
+                    balance=current_user.leave_balance
+                )
 
             new_request = LeaveRequest(
                 user_id=current_user.id,
@@ -105,27 +106,38 @@ def create_app(test_config=None):
             db.session.add(new_request)
             db.session.commit()
 
-            return f"""
-            <h2>Leave Request Submitted!</h2>
-            <p><b>Name:</b> {current_user.name}</p>
-            <p><b>Leave Type:</b> {new_request.leave_type}</p>
-            <p><b>From:</b> {new_request.start_date} <b>To:</b> {new_request.end_date}</p>
-            <p><b>Business days:</b> {days_requested}</p>
-            <p><b>Current balance (unchanged until approved):</b> {current_user.leave_balance}</p>
-            <p><b>Status:</b> {new_request.status}</p>
-            <a href="/">Back to Home</a>
-            """
+            return redirect(f"/apply/success/{new_request.id}")
         holidays_list = Holiday.query.order_by(Holiday.date).all()
         return render_template("apply.html", holidays=holidays_list)
-
+    @app.route("/apply/success/<int:request_id>")
+    @login_required
+    def apply_success(request_id):
+        leave_request = LeaveRequest.query.get_or_404(request_id)
+        if leave_request.user_id != current_user.id:
+            return "Access denied", 403
+        days = calculate_business_days(leave_request.start_date, leave_request.end_date)
+        return render_template(
+            "apply_success.html",
+            name=current_user.name,
+            leave_type=leave_request.leave_type,
+            start_date=leave_request.start_date,
+            end_date=leave_request.end_date,
+            days=days
+        )
     @app.route("/requests")
     @login_required
     def view_requests():
+        my_requests = LeaveRequest.query.filter_by(user_id=current_user.id).all()
+        team_requests = []
         if current_user.team_members:
-            all_requests = LeaveRequest.query.all()
-        else:
-            all_requests = LeaveRequest.query.filter_by(user_id=current_user.id).all()
-        return render_template("requests.html", requests=all_requests, calc_days=calculate_business_days)
+            team_ids = [member.id for member in current_user.team_members]
+            team_requests = LeaveRequest.query.filter(LeaveRequest.user_id.in_(team_ids)).all()
+        return render_template(
+            "requests.html",
+            my_requests=my_requests,
+            team_requests=team_requests,
+            calc_days=calculate_business_days
+        )
 
     @app.route("/register", methods=["GET", "POST"])
     def register():

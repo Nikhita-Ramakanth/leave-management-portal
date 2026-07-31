@@ -1,29 +1,28 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Leave Management Portal</title>
-</head>
-<body>
-    <h1>Leave Management Portal</h1>
-    <p>Welcome! This portal helps manage employee leave requests.</p>
+{% extends "base.html" %}
+{% block title %}Home — Leavepoint{% endblock %}
+{% block content %}
 
-    <nav>
-    {% if current_user.is_authenticated %}
-        <a href="/">Home</a> |
-        <a href="/apply">Apply for Leave</a> |
-        <a href="/requests">View All Requests</a> |
+{% if current_user.is_authenticated %}
+<div class="card">
+    <h1>Welcome, {{ current_user.name }}</h1>
+    <p class="subtitle">{{ current_user.role }}{% if current_user.practice %} · {{ current_user.practice }}{% endif %}</p>
+    <div style="display: flex; gap: 12px;">
+        <a class="btn" href="/apply">Apply for leave</a>
+        <a class="btn btn-ghost" href="/requests">View requests</a>
         {% if current_user.team_members %}
-        <a href="/manage">Manage Requests</a> |
+        <a class="btn btn-ghost" href="/manage">Manage requests</a>
         {% endif %}
-        {% if current_user.role == "Admin" %}
-        <a href="/holidays">Manage Holidays</a> |
-        {% endif %}
-        Welcome, {{ current_user.name }} ({{ current_user.role }}) — Balance: {{ current_user.leave_balance }} days |
-        <a href="/logout">Logout</a>
-    {% else %}
-        <a href="/login">Login</a> |
-        <a href="/register">Register</a>
-    {% endif %}
-</nav>
-</body>
-</html>
+    </div>
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 48px 32px;">
+    <h1>Leavepoint</h1>
+    <p class="subtitle">A simple way to request, approve, and track team leave.</p>
+    <div style="display: flex; gap: 12px; justify-content: center;">
+        <a class="btn" href="/login">Log in</a>
+        <a class="btn btn-ghost" href="/register">Create account</a>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

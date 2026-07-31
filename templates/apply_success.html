@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Request submitted — Leavepoint{% endblock %}
+{% block content %}
+
+<div class="card" style="max-width: 480px; margin: 0 auto;">
+    <h1>Request submitted</h1>
+    <p class="subtitle">Your manager will review this shortly.</p>
+
+    <table>
+        <tr><td class="mono" style="width: 140px;">Employee</td><td>{{ name }}</td></tr>
+        <tr><td class="mono">Leave type</td><td>{{ leave_type }}</td></tr>
+        <tr><td class="mono">Dates</td><td>{{ start_date }} → {{ end_date }}</td></tr>
+        <tr><td class="mono">Business days</td><td>{{ days }}</td></tr>
+        <tr><td class="mono">Status</td><td><span class="badge badge-pending">Pending</span></td></tr>
+    </table>
+
+    <a class="btn" href="/" style="margin-top: 20px; display: inline-block;">Back to home</a>
+</div>
+
+{% endblock %}

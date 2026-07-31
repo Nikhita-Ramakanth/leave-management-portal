@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Request denied — Leavepoint{% endblock %}
+{% block content %}
+
+<div class="card" style="max-width: 480px; margin: 0 auto;">
+    <h1>Not enough balance</h1>
+    <p class="subtitle">This request couldn't be submitted.</p>
+
+    <table>
+        <tr><td class="mono" style="width: 160px;">Days requested</td><td>{{ days_requested }}</td></tr>
+        <tr><td class="mono">Days remaining</td><td>{{ balance }}</td></tr>
+    </table>
+
+    <a class="btn btn-ghost" href="/apply" style="margin-top: 20px; display: inline-block;">Back to form</a>
+</div>
+
+{% endblock %}

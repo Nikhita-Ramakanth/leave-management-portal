@@ -72,9 +72,9 @@ def test_weekend_days_excluded_from_business_day_count(client):
         "start_date": "2026-08-07",
         "end_date": "2026-08-10",
         "reason": "Long weekend"
-    })
+    }, follow_redirects=True)
 
-    assert b"Business days:</b> 2" in response.data
+    assert b">2<" in response.data
 
 
 def test_approval_deducts_balance_correctly(client):
@@ -347,6 +347,23 @@ def test_holiday_excluded_from_business_day_count(client):
         "start_date": "2026-08-17",
         "end_date": "2026-08-19",
         "reason": "Testing holiday exclusion"
+    }, follow_redirects=True)
+
+    assert b">2<" in response.data
+def test_end_date_before_start_date_rejected(client):
+    register(client, "Date Tester", "datetest@test.com", "pass123", "Employee")
+    login(client, "datetest@test.com", "pass123")
+
+    response = client.post("/apply", data={
+        "leave_type": "Casual",
+        "start_date": "2026-08-10",
+        "end_date": "2026-08-05",
+        "reason": "Invalid date range"
     })
 
-    assert b"Business days:</b> 2" in response.data
+    assert response.status_code == 400
+
+    with client.application.app_context():
+        from app import LeaveRequest
+        saved = LeaveRequest.query.filter_by(reason="Invalid date range").first()
+        assert saved is None    

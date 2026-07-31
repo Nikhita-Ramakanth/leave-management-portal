@@ -1,36 +1,38 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Manage Holidays</title>
-</head>
-<body>
-    <h1>Company Holidays</h1>
+{% extends "base.html" %}
+{% block title %}Holidays — Leavepoint{% endblock %}
+{% block content %}
 
+<div class="card" style="max-width: 480px;">
+    <h1>Add a holiday</h1>
     <form method="POST">
-        <label for="date">Date:</label>
+        <label for="date">Date</label>
         <input type="date" id="date" name="date" required>
 
-        <label for="name">Holiday Name:</label>
-        <input type="text" id="name" name="name" required>
+        <label for="name">Holiday name</label>
+        <input type="text" id="name" name="name" placeholder="e.g. Independence Day" required>
 
-        <button type="submit">Add Holiday</button>
+        <button type="submit" style="width: 100%;">Add holiday</button>
     </form>
+</div>
 
-    <br>
-    <table border="1" cellpadding="8">
+<div class="card">
+    <h1>Company holidays</h1>
+    {% if holidays %}
+    <table>
         <tr>
             <th>Date</th>
-            <th>Holiday Name</th>
+            <th>Holiday</th>
         </tr>
         {% for h in holidays %}
         <tr>
-            <td>{{ h.date }}</td>
+            <td style="width: 140px;">{{ h.date }}</td>
             <td>{{ h.name }}</td>
         </tr>
         {% endfor %}
     </table>
+    {% else %}
+    <p class="muted">No holidays added yet.</p>
+    {% endif %}
+</div>
 
-    <br>
-    <a href="/">Back to Home</a>
-</body>
-</html>
+{% endblock %}

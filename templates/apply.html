@@ -1,34 +1,44 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Apply for Leave</title>
-</head>
-<body>
-    <h1>Apply for Leave</h1>
+{% extends "base.html" %}
+{% block title %}Apply for leave — Leavepoint{% endblock %}
+{% block content %}
+
+<div class="card" style="max-width: 480px; margin: 0 auto;">
+    <h1>Apply for leave</h1>
+    <p class="subtitle">Your balance: {{ current_user.leave_balance }} days</p>
 
     <form method="POST">
-        
-
-        <label for="leave_type">Leave Type:</label><br>
+        <label for="leave_type">Leave type</label>
         <select id="leave_type" name="leave_type">
-            <option value="Sick">Sick Leave</option>
-            <option value="Casual">Casual Leave</option>
-            <option value="Annual">Annual Leave</option>
-        </select><br><br>
+            <option value="Sick">Sick leave</option>
+            <option value="Casual">Casual leave</option>
+            <option value="Annual">Annual leave</option>
+        </select>
 
-        <label for="start_date">Start Date:</label><br>
-        <input type="date" id="start_date" name="start_date" required><br><br>
+        <label for="start_date">Start date</label>
+        <input type="date" id="start_date" name="start_date" required onchange="document.getElementById('end_date').min = this.value;">
 
-        <label for="end_date">End Date:</label><br>
-        <input type="date" id="end_date" name="end_date" required><br><br>
+        <label for="end_date">End date</label>
+        <input type="date" id="end_date" name="end_date" required>
 
-        <label for="reason">Reason:</label><br>
-        <textarea id="reason" name="reason" rows="3"></textarea><br><br>
+        <label for="reason">Reason</label>
+        <textarea id="reason" name="reason" rows="3" placeholder="A brief note for your manager"></textarea>
 
-        <button type="submit">Submit Request</button>
+        <button type="submit" style="width: 100%;">Submit request</button>
     </form>
+</div>
 
-    <br>
-    <a href="/">Back to Home</a>
-</body>
-</html>
+{% if holidays %}
+<div class="card" style="max-width: 480px; margin: 20px auto 0;">
+    <h2 style="font-size: 15px;">Upcoming holidays</h2>
+    <table>
+        {% for h in holidays %}
+        <tr>
+            <td style="width: 110px;">{{ h.date }}</td>
+            <td class="text">{{ h.name }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+
+{% endblock %}

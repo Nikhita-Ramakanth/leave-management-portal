@@ -1,52 +1,44 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Manage Leave Requests</title>
-</head>
-<body>
-    <h1>Manage Leave Requests</h1>
+{% extends "base.html" %}
+{% block title %}Manage requests — Leavepoint{% endblock %}
+{% block content %}
 
-    <table border="1" cellpadding="8">
+<div class="card">
+    <h1>Manage requests</h1>
+    <p class="subtitle">Pending leave requests from your direct reports.</p>
+
+    {% if requests %}
+    <table>
         <tr>
-            <th>ID</th>
             <th>Employee</th>
-            <th>Leave Type</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>Status</th>
+            <th>Type</th>
+            <th>Dates</th>
             <th>Days</th>
             <th>Reason</th>
-            <th>Action</th>
+            <th>Decision</th>
         </tr>
         {% for r in requests %}
         <tr>
-            <td>{{ r.id }}</td>
             <td>{{ r.user.name }}</td>
             <td>{{ r.leave_type }}</td>
-            <td>{{ r.start_date }}</td>
-            <td>{{ r.end_date }}</td>
-            <td>{{ r.status }}</td>
+            <td>{{ r.start_date }} → {{ r.end_date }}</td>
             <td>{{ calc_days(r.start_date, r.end_date) }}</td>
-            <td>{{ r.reason }}</td>
-            <td>
-                {% if r.status == "Pending" %}
-                <form method="POST" action="/manage/{{ r.id }}/approve">
-                    <input type="text" name="comment" placeholder="Optional comment">
-                    <button type="submit">Approve</button>
+            <td>{{ r.reason or "—" }}</td>
+            <td style="min-width: 220px;">
+                <form method="POST" action="/manage/{{ r.id }}/approve" style="margin-bottom: 6px;">
+                    <input type="text" name="comment" placeholder="Optional comment" style="margin-bottom: 6px;">
+                    <button type="submit" style="width: 100%;">Approve</button>
                 </form>
                 <form method="POST" action="/manage/{{ r.id }}/reject">
-                    <input type="text" name="comment" placeholder="Reason for rejection">
-                    <button type="submit">Reject</button>
+                    <input type="text" name="comment" placeholder="Reason for rejection" style="margin-bottom: 6px;">
+                    <button type="submit" class="btn-danger" style="width: 100%;">Reject</button>
                 </form>
-                {% else %}
-                    {{ r.manager_comment or "—" }}
-                {% endif %}
             </td>
         </tr>
         {% endfor %}
     </table>
+    {% else %}
+    <p class="muted">No pending requests right now.</p>
+    {% endif %}
+</div>
 
-    <br>
-    <a href="/">Back to Home</a>
-</body>
-</html>
+{% endblock %}

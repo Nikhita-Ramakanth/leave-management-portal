@@ -1,0 +1,194 @@
+:root {
+  --ink: #151A33;
+  --ink-soft: #4A4E63;
+  --muted: #6B6F85;
+  --bg: #F5F6FA;
+  --surface: #FFFFFF;
+  --border: #E4E6ED;
+  --border-soft: #EEF0F4;
+  --accent: #2A4FCC;
+  --accent-hover: #1F3DA6;
+  --accent-soft: #EEF2FC;
+  --success: #639922;
+  --success-bg: #EAF3DE;
+  --warning: #BA7517;
+  --warning-bg: #FAEEDA;
+  --danger: #E24B4A;
+  --danger-bg: #FCEBEB;
+  --radius: 8px;
+  --radius-lg: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+h1, h2, h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+
+h1 { font-size: 24px; }
+h2 { font-size: 19px; }
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover { text-decoration: underline; }
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  margin-bottom: 20px;
+}
+
+/* Header / nav */
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--ink);
+}
+.brand-mark {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.nav-links a { color: var(--ink-soft); font-weight: 500; }
+.nav-links a:hover { color: var(--accent); text-decoration: none; }
+.nav-spacer { flex: 1; }
+.balance-pill {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 20px;
+  padding: 4px 12px;
+}
+
+/* Forms */
+label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+input, select, textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 9px 12px;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  color: var(--ink);
+  margin-bottom: 16px;
+  background: var(--surface);
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+button, .btn {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 10px 18px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+}
+button:hover, .btn:hover { background: var(--accent-hover); }
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { background: var(--bg); }
+.btn-danger { background: var(--danger); }
+.btn-danger:hover { background: #C23D3C; }
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-soft);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+}
+td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--ink-soft); }
+
+/* Status badges */
+.badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-family: 'Inter', sans-serif;
+}
+.badge-pending { background: var(--warning-bg); color: var(--warning); }
+.badge-approved { background: var(--success-bg); color: var(--success); }
+.badge-rejected { background: var(--danger-bg); color: var(--danger); }
+
+.muted { color: var(--muted); font-size: 13px; }
+.subtitle { color: var(--muted); margin-bottom: 24px; }
