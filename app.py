@@ -7,17 +7,25 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
 
-ROLES = ["Employee", "Manager", "Senior Manager", "Head of Practice"]
+ROLES = ["Employee", "Manager", "Senior Manager", "Head of Practice", "Admin"]
 PRACTICES = ["Human Resources", "Finance", "Development", "Testing"]
+
+
+class Holiday(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.String(20), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
 
 
 def calculate_business_days(start_date_str, end_date_str):
     start = datetime.strptime(start_date_str, "%Y-%m-%d")
     end = datetime.strptime(end_date_str, "%Y-%m-%d")
+    holiday_dates = {h.date for h in Holiday.query.all()}
     business_days = 0
     current = start
     while current <= end:
-        if current.weekday() < 5:
+        current_str = current.strftime("%Y-%m-%d")
+        if current.weekday() < 5 and current_str not in holiday_dates:
             business_days += 1
         current += timedelta(days=1)
     return business_days
@@ -107,7 +115,8 @@ def create_app(test_config=None):
             <p><b>Status:</b> {new_request.status}</p>
             <a href="/">Back to Home</a>
             """
-        return render_template("apply.html")
+        holidays_list = Holiday.query.order_by(Holiday.date).all()
+        return render_template("apply.html", holidays=holidays_list)
 
     @app.route("/requests")
     @login_required
@@ -194,6 +203,21 @@ def create_app(test_config=None):
         leave_request.manager_comment = request.form.get("comment", "")
         db.session.commit()
         return redirect("/manage")
+
+    @app.route("/holidays", methods=["GET", "POST"])
+    @login_required
+    def holidays():
+        if current_user.role != "Admin":
+            return "Access denied - Admins only", 403
+        if request.method == "POST":
+            new_holiday = Holiday(
+                date=request.form["date"],
+                name=request.form["name"]
+            )
+            db.session.add(new_holiday)
+            db.session.commit()
+        all_holidays = Holiday.query.order_by(Holiday.date).all()
+        return render_template("holidays.html", holidays=all_holidays)
 
     return app
 

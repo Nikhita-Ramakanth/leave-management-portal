@@ -301,3 +301,52 @@ def test_cannot_register_with_manager_from_different_practice(client):
 
     with client.application.app_context():
         assert User.query.filter_by(email="sneaky@test.com").first() is None
+def test_holidays_page_requires_admin_role(client):
+    register(client, "Regular Employee2", "regular2@test.com", "pass123", "Employee")
+    login(client, "regular2@test.com", "pass123")
+
+    response = client.get("/holidays")
+    assert response.status_code == 403
+
+
+def test_admin_can_add_and_view_holidays(client):
+    register(client, "HR Admin", "hradmin@test.com", "pass123", "Admin")
+    login(client, "hradmin@test.com", "pass123")
+
+    response = client.post("/holidays", data={
+        "date": "2026-08-15",
+        "name": "Independence Day"
+    })
+
+    assert response.status_code == 200
+    assert b"Independence Day" in response.data
+
+    with client.application.app_context():
+        from app import Holiday
+        saved = Holiday.query.filter_by(name="Independence Day").first()
+        assert saved is not None
+        assert saved.date == "2026-08-15"
+
+
+def test_holiday_excluded_from_business_day_count(client):
+    register(client, "HR Admin2", "hradmin2@test.com", "pass123", "Admin")
+    login(client, "hradmin2@test.com", "pass123")
+    client.post("/holidays", data={
+        "date": "2026-08-19",
+        "name": "Test Holiday"
+    })
+    client.get("/logout")
+
+    register(client, "Holiday Tester", "holidaytest@test.com", "pass123", "Employee")
+    login(client, "holidaytest@test.com", "pass123")
+
+    # Mon Aug 17 -> Wed Aug 19 (2026). Normally 3 business days,
+    # but Aug 19 is now a holiday, so it should count as 2.
+    response = client.post("/apply", data={
+        "leave_type": "Casual",
+        "start_date": "2026-08-17",
+        "end_date": "2026-08-19",
+        "reason": "Testing holiday exclusion"
+    })
+
+    assert b"Business days:</b> 2" in response.data

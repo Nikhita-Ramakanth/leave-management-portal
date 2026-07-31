@@ -12,10 +12,12 @@
         <a href="/">Home</a> |
         <a href="/apply">Apply for Leave</a> |
         <a href="/requests">View All Requests</a> |
-        {% if current_user.role == "Manager" %}
+        {% if current_user.team_members %}
         <a href="/manage">Manage Requests</a> |
         {% endif %}
-        
+        {% if current_user.role == "Admin" %}
+        <a href="/holidays">Manage Holidays</a> |
+        {% endif %}
         Welcome, {{ current_user.name }} ({{ current_user.role }}) — Balance: {{ current_user.leave_balance }} days |
         <a href="/logout">Logout</a>
     {% else %}

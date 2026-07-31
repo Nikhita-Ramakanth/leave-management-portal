@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Holidays</title>
+</head>
+<body>
+    <h1>Company Holidays</h1>
+
+    <form method="POST">
+        <label for="date">Date:</label>
+        <input type="date" id="date" name="date" required>
+
+        <label for="name">Holiday Name:</label>
+        <input type="text" id="name" name="name" required>
+
+        <button type="submit">Add Holiday</button>
+    </form>
+
+    <br>
+    <table border="1" cellpadding="8">
+        <tr>
+            <th>Date</th>
+            <th>Holiday Name</th>
+        </tr>
+        {% for h in holidays %}
+        <tr>
+            <td>{{ h.date }}</td>
+            <td>{{ h.name }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <br>
+    <a href="/">Back to Home</a>
+</body>
+</html>
