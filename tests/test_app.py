@@ -174,7 +174,7 @@ def test_employee_only_sees_own_requests(client):
 
 
 def test_full_hierarchy_chain_development_practice(client):
-    register(client, "Head H", "headh@test.com", "pass123", "Head of Practice", "Leadership")
+    register(client, "Head H", "headh@test.com", "pass123", "Head of Practice", "Development")
     with client.application.app_context():
         head_h_id = User.query.filter_by(email="headh@test.com").first().id
 
@@ -286,4 +286,18 @@ def test_separate_practice_hierarchies_are_isolated(client):
     response = client.get("/manage")
     assert b"Fin leave request" in response.data
     assert b"Dev leave request" not in response.data
-    
+
+def test_cannot_register_with_manager_from_different_practice(client):
+    register(client, "Head Dev2", "headdev2@test.com", "pass123", "Head of Practice", "Development")
+    with client.application.app_context():
+        head_dev2_id = User.query.filter_by(email="headdev2@test.com").first().id
+
+    response = register(
+        client, "Sneaky Employee", "sneaky@test.com", "pass123",
+        "Employee", "Finance", head_dev2_id
+    )
+
+    assert response.status_code == 400
+
+    with client.application.app_context():
+        assert User.query.filter_by(email="sneaky@test.com").first() is None

@@ -8,7 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 db = SQLAlchemy()
 
 ROLES = ["Employee", "Manager", "Senior Manager", "Head of Practice"]
-PRACTICES = ["Human Resources", "Finance", "Development", "Testing", "Leadership"]
+PRACTICES = ["Human Resources", "Finance", "Development", "Testing"]
 
 
 def calculate_business_days(start_date_str, end_date_str):
@@ -121,14 +121,21 @@ def create_app(test_config=None):
     @app.route("/register", methods=["GET", "POST"])
     def register():
         if request.method == "POST":
-            hashed_password = generate_password_hash(request.form["password"])
             manager_id = request.form.get("manager_id") or None
+            practice = request.form.get("practice") or None
+
+            if manager_id:
+                selected_manager = db.session.get(User, int(manager_id))
+                if selected_manager is None or selected_manager.practice != practice:
+                    return "Invalid selection: manager must belong to the same practice", 400
+
+            hashed_password = generate_password_hash(request.form["password"])
             new_user = User(
                 name=request.form["name"],
                 email=request.form["email"],
                 password_hash=hashed_password,
                 role=request.form["role"],
-                practice=request.form.get("practice") or None,
+                practice=practice,
                 manager_id=manager_id
             )
             db.session.add(new_user)

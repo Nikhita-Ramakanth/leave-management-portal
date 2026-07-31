@@ -24,7 +24,7 @@
         </select><br><br>
 
         <label for="practice">Practice:</label><br>
-        <select id="practice" name="practice">
+        <select id="practice" name="practice" onchange="filterManagers()">
             <option value="">— Select Practice —</option>
             {% for p in practices %}
             <option value="{{ p }}">{{ p }}</option>
@@ -35,7 +35,7 @@
         <select id="manager_id" name="manager_id">
             <option value="">— None / Top of hierarchy —</option>
             {% for manager in managers %}
-            <option value="{{ manager.id }}">{{ manager.name }} ({{ manager.role }})</option>
+            <option value="{{ manager.id }}" data-practice="{{ manager.practice }}">{{ manager.name }} ({{ manager.role }})</option>
             {% endfor %}
         </select><br><br>
 
@@ -44,5 +44,26 @@
 
     <br>
     <a href="/login">Already have an account? Login</a>
+
+    <script>
+        function filterManagers() {
+            const selectedPractice = document.getElementById("practice").value;
+            const managerOptions = document.getElementById("manager_id").options;
+
+            for (let i = 0; i < managerOptions.length; i++) {
+                const option = managerOptions[i];
+                const optionPractice = option.getAttribute("data-practice");
+
+                if (!optionPractice) {
+                    option.style.display = "";
+                } else if (optionPractice === selectedPractice) {
+                    option.style.display = "";
+                } else {
+                    option.style.display = "none";
+                }
+            }
+            document.getElementById("manager_id").value = "";
+        }
+    </script>
 </body>
 </html>
