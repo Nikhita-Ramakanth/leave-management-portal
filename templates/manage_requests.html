@@ -7,6 +7,14 @@
     <p class="subtitle">Pending leave requests from your direct reports.</p>
 
     {% if requests %}
+    <label for="employeeFilter">Filter by employee</label>
+    <select id="employeeFilter" onchange="filterByEmployee()" style="max-width: 280px;">
+        <option value="all">All employees</option>
+        {% for member in current_user.team_members %}
+        <option value="{{ member.name }}">{{ member.name }}</option>
+        {% endfor %}
+    </select>
+
     <table>
         <tr>
             <th>Employee</th>
@@ -17,7 +25,7 @@
             <th>Decision</th>
         </tr>
         {% for r in requests %}
-        <tr>
+        <tr class="requestRow" data-employee="{{ r.user.name }}">
             <td>{{ r.user.name }}</td>
             <td>{{ r.leave_type }}</td>
             <td>{{ r.start_date }} → {{ r.end_date }}</td>
@@ -40,5 +48,19 @@
     <p class="muted">No pending requests right now.</p>
     {% endif %}
 </div>
+
+<script>
+    function filterByEmployee() {
+        const selected = document.getElementById("employeeFilter").value;
+        const rows = document.querySelectorAll(".requestRow");
+        rows.forEach(row => {
+            if (selected === "all" || row.getAttribute("data-employee") === selected) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        });
+    }
+</script>
 
 {% endblock %}

@@ -6,6 +6,9 @@
 <div class="card">
     <h1>Welcome, {{ current_user.name }}</h1>
     <p class="subtitle">{{ current_user.role }}{% if current_user.practice %} · {{ current_user.practice }}{% endif %}</p>
+    {% if current_user.manager %}
+    <p class="muted" style="margin-bottom: 20px;">Your leave requests are approved by <strong>{{ current_user.manager.name }}</strong> ({{ current_user.manager.role }})</p>
+    {% endif %}
     <div style="display: flex; gap: 12px;">
         <a class="btn" href="/apply">Apply for leave</a>
         <a class="btn btn-ghost" href="/requests">View requests</a>

@@ -289,6 +289,30 @@ def create_app(test_config=None):
         db.session.commit()
         return redirect("/users")
 
+    @app.cli.command("create-admin")
+    def create_admin():
+        import getpass
+        print("=== Create the first Admin account ===")
+        name = input("Full name: ")
+        email = input("Email: ")
+        password = getpass.getpass("Password: ")
+
+        existing = User.query.filter_by(email=email).first()
+        if existing:
+            print(f"A user with email {email} already exists.")
+            return
+
+        hashed_password = generate_password_hash(password)
+        admin_user = User(
+            name=name,
+            email=email,
+            password_hash=hashed_password,
+            role="Admin"
+        )
+        db.session.add(admin_user)
+        db.session.commit()
+        print(f"Admin account created for {name} ({email}).")
+
     return app
 
 
