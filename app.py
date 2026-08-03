@@ -149,6 +149,12 @@ def create_app(test_config=None):
             if submitted_role not in PUBLIC_ROLES:
                 return "Invalid role selection", 400
 
+            if request.form["password"] != request.form["confirm_password"]:
+                return "Passwords do not match", 400
+
+            if len(request.form["password"]) < 8:
+                return "Password must be at least 8 characters", 400
+
             manager_id = request.form.get("manager_id") or None
             practice = request.form.get("practice") or None
 
@@ -157,6 +163,9 @@ def create_app(test_config=None):
                 if selected_manager is None or selected_manager.practice != practice:
                     return "Invalid selection: manager must belong to the same practice", 400
 
+            raw_phone = request.form.get("phone_number") or ""
+            full_phone = f"{request.form.get('country_code', '')} {raw_phone}".strip() if raw_phone else None
+
             hashed_password = generate_password_hash(request.form["password"])
             new_user = User(
                 name=request.form["name"],
@@ -164,7 +173,7 @@ def create_app(test_config=None):
                 password_hash=hashed_password,
                 role=submitted_role,
                 practice=practice,
-                phone_number=request.form.get("phone_number") or None,
+                phone_number=full_phone,
                 manager_id=manager_id
             )
             db.session.add(new_user)
