@@ -1,6 +1,7 @@
 import os
 from flask import Flask, render_template, request, redirect
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from flask_login import LoginManager, login_user, logout_user, UserMixin, login_required, current_user
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -8,8 +9,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 db = SQLAlchemy()
 
 ROLES = ["Employee", "Manager", "Senior Manager", "Head of Practice", "Admin"]
+PUBLIC_ROLES = ["Employee", "Manager", "Senior Manager", "Head of Practice"]
 PRACTICES = ["Human Resources", "Finance", "Development", "Testing"]
-
 
 class Holiday(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -52,6 +53,7 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(30), nullable=False, default="Employee")
     practice = db.Column(db.String(50), nullable=True)
     leave_balance = db.Column(db.Integer, nullable=False, default=24)
+    phone_number = db.Column(db.String(20), nullable=True)
     manager_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     manager = db.relationship("User", remote_side=[id], backref="team_members")
 
@@ -67,6 +69,7 @@ def create_app(test_config=None):
         )
 
     db.init_app(app)
+    Migrate(app, db)
 
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key-change-later")
 
@@ -142,6 +145,10 @@ def create_app(test_config=None):
     @app.route("/register", methods=["GET", "POST"])
     def register():
         if request.method == "POST":
+            submitted_role = request.form["role"]
+            if submitted_role not in PUBLIC_ROLES:
+                return "Invalid role selection", 400
+
             manager_id = request.form.get("manager_id") or None
             practice = request.form.get("practice") or None
 
@@ -155,15 +162,16 @@ def create_app(test_config=None):
                 name=request.form["name"],
                 email=request.form["email"],
                 password_hash=hashed_password,
-                role=request.form["role"],
+                role=submitted_role,
                 practice=practice,
+                phone_number=request.form.get("phone_number") or None,
                 manager_id=manager_id
             )
             db.session.add(new_user)
             db.session.commit()
             return redirect("/login")
         potential_managers = User.query.filter(User.role != "Employee").all()
-        return render_template("register.html", managers=potential_managers, roles=ROLES, practices=PRACTICES)
+        return render_template("register.html", managers=potential_managers, roles=PUBLIC_ROLES, practices=PRACTICES)
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
@@ -230,12 +238,51 @@ def create_app(test_config=None):
             db.session.commit()
         all_holidays = Holiday.query.order_by(Holiday.date).all()
         return render_template("holidays.html", holidays=all_holidays)
+    @app.route("/users")
+    @login_required
+    def manage_users():
+        if current_user.role != "Admin":
+            return "Access denied - Admins only", 403
+        all_users = User.query.all()
+        return render_template("manage_users.html", users=all_users)
+
+    @app.route("/users/<int:user_id>/reassign", methods=["POST"])
+    @login_required
+    def reassign_user(user_id):
+        if current_user.role != "Admin":
+            return "Access denied - Admins only", 403
+        user_to_update = db.session.get(User, user_id)
+        if user_to_update is None:
+            return "User not found", 404
+
+        new_manager_id = request.form.get("manager_id") or None
+
+        if new_manager_id:
+            new_manager = db.session.get(User, int(new_manager_id))
+            if new_manager is None or new_manager.practice != user_to_update.practice:
+                return "Invalid selection: manager must belong to the same practice", 400
+            if int(new_manager_id) == user_to_update.id:
+                return "A user cannot report to themselves", 400
+
+        user_to_update.manager_id = new_manager_id
+        db.session.commit()
+        return redirect("/users")
+
+    @app.route("/users/<int:user_id>/promote-admin", methods=["POST"])
+    @login_required
+    def promote_admin(user_id):
+        if current_user.role != "Admin":
+            return "Access denied - Admins only", 403
+        user_to_promote = db.session.get(User, user_id)
+        if user_to_promote is None:
+            return "User not found", 404
+        user_to_promote.role = "Admin"
+        db.session.commit()
+        return redirect("/users")
 
     return app
 
 
 if __name__ == "__main__":
     app = create_app()
-    with app.app_context():
-        db.create_all()
     app.run(debug=True, host="0.0.0.0", port=5000)

@@ -310,7 +310,11 @@ def test_holidays_page_requires_admin_role(client):
 
 
 def test_admin_can_add_and_view_holidays(client):
-    register(client, "HR Admin", "hradmin@test.com", "pass123", "Admin")
+    register(client, "HR Admin", "hradmin@test.com", "pass123", "Employee")
+    with client.application.app_context():
+        admin = User.query.filter_by(email="hradmin@test.com").first()
+        admin.role = "Admin"
+        db.session.commit()
     login(client, "hradmin@test.com", "pass123")
 
     response = client.post("/holidays", data={
@@ -329,7 +333,11 @@ def test_admin_can_add_and_view_holidays(client):
 
 
 def test_holiday_excluded_from_business_day_count(client):
-    register(client, "HR Admin2", "hradmin2@test.com", "pass123", "Admin")
+    register(client, "HR Admin2", "hradmin2@test.com", "pass123", "Employee")
+    with client.application.app_context():
+        admin = User.query.filter_by(email="hradmin2@test.com").first()
+        admin.role = "Admin"
+        db.session.commit()
     login(client, "hradmin2@test.com", "pass123")
     client.post("/holidays", data={
         "date": "2026-08-19",
@@ -367,3 +375,41 @@ def test_end_date_before_start_date_rejected(client):
         from app import LeaveRequest
         saved = LeaveRequest.query.filter_by(reason="Invalid date range").first()
         assert saved is None    
+
+def test_admin_role_rejected_at_public_registration(client):
+    response = register(client, "Sneaky Admin", "sneakyadmin@test.com", "pass123", "Admin")
+    assert response.status_code == 400
+
+    with client.application.app_context():
+        assert User.query.filter_by(email="sneakyadmin@test.com").first() is None
+
+
+def test_existing_admin_can_promote_another_user(client):
+    register(client, "Real Admin", "realadmin@test.com", "pass123", "Employee")
+    with client.application.app_context():
+        admin_user = User.query.filter_by(email="realadmin@test.com").first()
+        admin_user.role = "Admin"
+        db.session.commit()
+
+    register(client, "Future Admin", "futureadmin@test.com", "pass123", "Employee")
+    with client.application.app_context():
+        future_admin_id = User.query.filter_by(email="futureadmin@test.com").first().id
+
+    login(client, "realadmin@test.com", "pass123")
+    response = client.post(f"/users/{future_admin_id}/promote-admin")
+    assert response.status_code == 302
+
+    with client.application.app_context():
+        promoted = db.session.get(User, future_admin_id)
+        assert promoted.role == "Admin"
+
+
+def test_non_admin_cannot_promote_users(client):
+    register(client, "Regular User", "regularuser@test.com", "pass123", "Employee")
+    register(client, "Target User", "targetuser@test.com", "pass123", "Employee")
+    with client.application.app_context():
+        target_id = User.query.filter_by(email="targetuser@test.com").first().id
+
+    login(client, "regularuser@test.com", "pass123")
+    response = client.post(f"/users/{target_id}/promote-admin")
+    assert response.status_code == 403
