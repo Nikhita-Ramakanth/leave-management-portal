@@ -179,7 +179,7 @@ def create_app(test_config=None):
             db.session.add(new_user)
             db.session.commit()
             return redirect("/login")
-        potential_managers = User.query.filter(User.role != "Employee").all()
+        potential_managers = User.query.filter(User.role.notin_(["Employee", "Admin"])).all()
         return render_template("register.html", managers=potential_managers, roles=PUBLIC_ROLES, practices=PRACTICES)
 
     @app.route("/login", methods=["GET", "POST"])

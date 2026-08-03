@@ -25,18 +25,14 @@
                     <select name="manager_id" style="margin-bottom: 0;">
                         <option value="">None / top of hierarchy</option>
                         {% for m in users %}
-                            {% if m.id != u.id and m.practice == u.practice %}
+                            {% if m.id != u.id and m.role not in ["Employee", "Admin"] and m.practice == u.practice %}
                             <option value="{{ m.id }}" {% if u.manager_id == m.id %}selected{% endif %}>{{ m.name }} ({{ m.role }})</option>
                             {% endif %}
                         {% endfor %}
                     </select>
                     <button type="submit">Save</button>
                 </form>
-                {% if u.role != "Admin" %}
-                <form method="POST" action="/users/{{ u.id }}/promote-admin">
-                    <button type="submit" class="btn-ghost">Make Admin</button>
-                </form>
-                {% endif %}
+                
             </td>
         </tr>
         {% endfor %}
