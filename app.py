@@ -165,6 +165,8 @@ def create_app(test_config=None):
 
             raw_phone = request.form.get("phone_number") or ""
             full_phone = f"{request.form.get('country_code', '')} {raw_phone}".strip() if raw_phone else None
+            if User.query.filter_by(email=request.form["email"]).first():
+                return "An account with this email already exists", 400
 
             hashed_password = generate_password_hash(request.form["password"])
             new_user = User(
@@ -318,4 +320,5 @@ def create_app(test_config=None):
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    app.run(debug=debug_mode, host="0.0.0.0", port=5000)

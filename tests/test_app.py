@@ -416,3 +416,14 @@ def test_non_admin_cannot_promote_users(client):
     login(client, "regularuser@test.com", "pass12345")
     response = client.post(f"/users/{target_id}/promote-admin")
     assert response.status_code == 403
+
+def test_duplicate_email_registration_rejected(client):
+    register(client, "First User", "duplicate@test.com", "pass12345", "Employee")
+
+    response = register(client, "Second User", "duplicate@test.com", "pass12345", "Employee")
+    assert response.status_code == 400
+
+    with client.application.app_context():
+        matching_users = User.query.filter_by(email="duplicate@test.com").all()
+        assert len(matching_users) == 1
+        assert matching_users[0].name == "First User"
