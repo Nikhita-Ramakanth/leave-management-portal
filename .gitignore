@@ -1,3 +1,5 @@
 venv/
 leave.db
 instance/
+
+__pycache__/
