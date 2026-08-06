@@ -26,7 +26,7 @@ def upgrade():
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('user', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('is_super_admin', sa.Boolean(), server_default=sa.text('0'), nullable=False))
+        batch_op.add_column(sa.Column('is_super_admin', sa.Boolean(), server_default=sa.text('false'), nullable=False))
 
     # ### end Alembic commands ###
 
