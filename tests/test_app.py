@@ -442,3 +442,14 @@ def test_duplicate_email_registration_rejected(client):
         matching_users = User.query.filter_by(email="duplicate@test.com").all()
         assert len(matching_users) == 1
         assert matching_users[0].name == "First User"
+
+def test_promote_super_admin_cli(client):
+    register(client, "Promote Test", "promotetest@test.com", "pass12345", "Employee")
+
+    runner = client.application.test_cli_runner()
+    runner.invoke(args=["promote-super-admin"], input="promotetest@test.com\n")
+
+    with client.application.app_context():
+        promoted = User.query.filter_by(email="promotetest@test.com").first()
+        assert promoted.is_super_admin is True
+        assert promoted.organization_id is None

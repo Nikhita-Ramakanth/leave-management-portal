@@ -329,6 +329,18 @@ def create_app(test_config=None):
         db.session.commit()
         print(f"Admin account created for {name} ({email}).")
 
+    @app.cli.command("promote-super-admin")
+    def promote_super_admin():
+        email = input("Email of the account to promote to Super Admin: ")
+        user = User.query.filter_by(email=email).first()
+        if user is None:
+            print(f"No user found with email {email}.")
+            return
+        user.is_super_admin = True
+        user.organization_id = None
+        db.session.commit()
+        print(f"{user.name} ({user.email}) promoted to Super Admin.")
+
     return app
 
 
