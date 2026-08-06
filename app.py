@@ -12,10 +12,20 @@ ROLES = ["Employee", "Manager", "Senior Manager", "Head of Practice", "Admin"]
 PUBLIC_ROLES = ["Employee", "Manager", "Senior Manager", "Head of Practice"]
 PRACTICES = ["Human Resources", "Finance", "Development", "Testing"]
 
+
+class Organization(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class Holiday(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.String(20), unique=True, nullable=False)
     name = db.Column(db.String(100), nullable=False)
+    organization_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=False)
+    organization = db.relationship("Organization", backref="holidays")
 
 
 def calculate_business_days(start_date_str, end_date_str):
@@ -56,6 +66,9 @@ class User(UserMixin, db.Model):
     phone_number = db.Column(db.String(20), nullable=True)
     manager_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     manager = db.relationship("User", remote_side=[id], backref="team_members")
+    is_super_admin = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    organization_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
+    organization = db.relationship("Organization", backref="users")
 
 
 def create_app(test_config=None):
@@ -243,7 +256,8 @@ def create_app(test_config=None):
         if request.method == "POST":
             new_holiday = Holiday(
                 date=request.form["date"],
-                name=request.form["name"]
+                name=request.form["name"],
+                organization_id=current_user.organization_id
             )
             db.session.add(new_holiday)
             db.session.commit()

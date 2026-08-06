@@ -315,8 +315,15 @@ def test_holidays_page_requires_admin_role(client):
 def test_admin_can_add_and_view_holidays(client):
     register(client, "HR Admin", "hradmin@test.com", "pass12345", "Employee")
     with client.application.app_context():
+        from app import Organization
+        org = Organization(name="Test Org")
+        db.session.add(org)
+        db.session.commit()
+        org_id = org.id
+
         admin = User.query.filter_by(email="hradmin@test.com").first()
         admin.role = "Admin"
+        admin.organization_id = org_id
         db.session.commit()
     login(client, "hradmin@test.com", "pass12345")
 
@@ -333,13 +340,20 @@ def test_admin_can_add_and_view_holidays(client):
         saved = Holiday.query.filter_by(name="Independence Day").first()
         assert saved is not None
         assert saved.date == "2026-08-15"
+        assert saved.organization_id == org_id
 
 
 def test_holiday_excluded_from_business_day_count(client):
     register(client, "HR Admin2", "hradmin2@test.com", "pass12345", "Employee")
     with client.application.app_context():
+        from app import Organization
+        org = Organization(name="Test Org 2")
+        db.session.add(org)
+        db.session.commit()
+
         admin = User.query.filter_by(email="hradmin2@test.com").first()
         admin.role = "Admin"
+        admin.organization_id = org.id
         db.session.commit()
     login(client, "hradmin2@test.com", "pass12345")
     client.post("/holidays", data={
@@ -361,6 +375,7 @@ def test_holiday_excluded_from_business_day_count(client):
     }, follow_redirects=True)
 
     assert b">2<" in response.data
+
 def test_end_date_before_start_date_rejected(client):
     register(client, "Date Tester", "datetest@test.com", "pass12345", "Employee")
     login(client, "datetest@test.com", "pass12345")
