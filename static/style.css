@@ -1,20 +1,20 @@
 :root {
-  --ink: #151A33;
-  --ink-soft: #4A4E63;
-  --muted: #6B6F85;
-  --bg: #F5F6FA;
+  --ink: #14162B;
+  --ink-soft: #4B4E6B;
+  --muted: #6E7191;
+  --bg: #F6F6FB;
   --surface: #FFFFFF;
-  --border: #E4E6ED;
-  --border-soft: #EEF0F4;
-  --accent: #2A4FCC;
-  --accent-hover: #1F3DA6;
-  --accent-soft: #EEF2FC;
-  --success: #639922;
-  --success-bg: #EAF3DE;
-  --warning: #BA7517;
-  --warning-bg: #FAEEDA;
-  --danger: #E24B4A;
-  --danger-bg: #FCEBEB;
+  --border: #E5E5F0;
+  --border-soft: #EFEFF7;
+  --accent: #4F46E5;
+  --accent-hover: #4338CA;
+  --accent-soft: #EEF0FE;
+  --success: #16A34A;
+  --success-bg: #DCFCE7;
+  --warning: #D97706;
+  --warning-bg: #FEF3C7;
+  --danger: #DC2626;
+  --danger-bg: #FEE2E2;
   --radius: 8px;
   --radius-lg: 14px;
 }
@@ -31,14 +31,15 @@ body {
 }
 
 h1, h2, h3 {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 500;
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
   color: var(--ink);
   margin: 0 0 8px;
 }
 
 h1 { font-size: 24px; }
 h2 { font-size: 19px; }
+h3 { font-size: 16px; }
 
 a {
   color: var(--accent);
@@ -48,6 +49,12 @@ a:hover { text-decoration: underline; }
 
 .page {
   max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+.page-wide {
+  max-width: 1180px;
   margin: 0 auto;
   padding: 32px 24px 64px;
 }
@@ -66,7 +73,7 @@ a:hover { text-decoration: underline; }
   border-bottom: 1px solid var(--border);
 }
 .topbar-inner {
-  max-width: 960px;
+  max-width: 1180px;
   margin: 0 auto;
   padding: 14px 24px;
   display: flex;
@@ -77,7 +84,7 @@ a:hover { text-decoration: underline; }
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Sora', sans-serif;
   font-weight: 600;
   font-size: 17px;
   color: var(--ink);
@@ -98,6 +105,7 @@ a:hover { text-decoration: underline; }
 .nav-links a:not(.btn) { color: var(--ink-soft); font-weight: 500; }
 .nav-links a.btn { color: #fff; }
 .nav-links a:hover { color: var(--accent); text-decoration: none; }
+.nav-links a.nav-active { color: var(--accent); }
 .nav-spacer { flex: 1; }
 .balance-pill {
   font-family: 'IBM Plex Mono', monospace;
@@ -106,6 +114,16 @@ a:hover { text-decoration: underline; }
   color: var(--accent);
   border-radius: 20px;
   padding: 4px 12px;
+}
+.super-admin-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 4px 12px;
+  border-radius: 20px;
 }
 
 /* Forms */
@@ -131,6 +149,12 @@ input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--accent);
 }
+.field-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: -12px;
+  margin-bottom: 16px;
+}
 
 button, .btn {
   display: inline-block;
@@ -152,7 +176,8 @@ button:hover, .btn:hover { background: var(--accent-hover); }
 }
 .btn-ghost:hover { background: var(--bg); }
 .btn-danger { background: var(--danger); }
-.btn-danger:hover { background: #C23D3C; }
+.btn-danger:hover { background: #B91C1C; }
+.btn-sm { padding: 6px 12px; font-size: 13px; }
 
 /* Tables */
 table {
@@ -178,7 +203,7 @@ td {
 }
 td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--ink-soft); }
 
-/* Status badges */
+/* Status badges — leave request workflow */
 .badge {
   display: inline-block;
   font-size: 12px;
@@ -191,5 +216,116 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(-
 .badge-approved { background: var(--success-bg); color: var(--success); }
 .badge-rejected { background: var(--danger-bg); color: var(--danger); }
 
+/* Status badges — organization is_active */
+.badge-org-active { background: var(--success-bg); color: var(--success); }
+.badge-org-inactive { background: var(--danger-bg); color: var(--danger); }
+
+/* Status badges — subscription_status */
+.badge-sub-trial { background: var(--warning-bg); color: var(--warning); }
+.badge-sub-active { background: var(--success-bg); color: var(--success); }
+.badge-sub-pastdue { background: var(--warning-bg); color: var(--warning); }
+.badge-sub-cancelled { background: var(--danger-bg); color: var(--danger); }
+
 .muted { color: var(--muted); font-size: 13px; }
 .subtitle { color: var(--muted); margin-bottom: 24px; }
+
+/* Tile grid system — Super Admin dashboard */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.stat-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+}
+.stat-tile .stat-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.stat-tile .stat-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.action-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 32px;
+}
+.action-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.action-tile:hover {
+  border-color: var(--accent);
+  text-decoration: none;
+}
+.action-tile .action-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+}
+.action-tile .action-label {
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.org-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.org-tile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+}
+.org-tile .org-name {
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.org-tile .org-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+.org-tile .org-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.org-tile .org-sub-type {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+}

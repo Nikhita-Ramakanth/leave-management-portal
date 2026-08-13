@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Super Admin Dashboard — Leavepoint{% endblock %}
+{% block content %}
+
+<div class="page-wide">
+    <h1>Dashboard</h1>
+    <p class="subtitle">Manage organizations across Leavepoint.</p>
+
+    <div class="tile-grid">
+        <div class="stat-tile">
+            <div class="stat-label">Organizations</div>
+            <div class="stat-value">{{ total_orgs }}</div>
+        </div>
+        <div class="stat-tile">
+            <div class="stat-label">Total users</div>
+            <div class="stat-value">{{ total_users }}</div>
+        </div>
+        <div class="stat-tile">
+            <div class="stat-label">Active organizations</div>
+            <div class="stat-value">{{ active_orgs }}</div>
+        </div>
+    </div>
+
+    <div class="action-tile-grid">
+        <a class="action-tile" href="/super-admin/organizations/new">
+            <div class="action-icon">+</div>
+            <div class="action-label">Create organization</div>
+        </a>
+        <a class="action-tile" href="/super-admin/admins/new">
+            <div class="action-icon">+</div>
+            <div class="action-label">Add organization admin</div>
+        </a>
+    </div>
+
+    <h2>Organizations</h2>
+    <div class="org-list">
+        {% for org in organizations %}
+        <div class="org-tile">
+            <div>
+                <div class="org-name">{{ org.name }}</div>
+                <div class="org-meta">
+                    {{ org.users|length }} registered user{{ 's' if org.users|length != 1 else '' }}{% if org.employee_count %} · {{ org.employee_count }} employees {% endif %}{% if org.industry %} · {{ org.industry }}{% endif %}
+                </div>
+            </div>
+            <div class="org-badges">
+                {% if org.is_active %}
+                <span class="badge badge-org-active">Active</span>
+                {% else %}
+                <span class="badge badge-org-inactive">Inactive</span>
+                {% endif %}
+
+                {% if org.subscription_status == "Trial" %}
+                <span class="badge badge-sub-trial">Trial</span>
+                {% elif org.subscription_status == "Active" %}
+                <span class="badge badge-sub-active">Active plan</span>
+                {% elif org.subscription_status == "Past Due" %}
+                <span class="badge badge-sub-pastdue">Past due</span>
+                {% elif org.subscription_status == "Cancelled" %}
+                <span class="badge badge-sub-cancelled">Cancelled</span>
+                {% endif %}
+
+                {% if org.subscription_type %}
+                <span class="org-sub-type">{{ org.subscription_type }}</span>
+                {% endif %}
+
+                <a href="/super-admin/organizations/{{ org.id }}/edit" class="btn-ghost btn-sm">Edit</a>
+                <form method="POST" action="/super-admin/organizations/{{ org.id }}/toggle-active" style="margin: 0;">
+                    {% if org.is_active %}
+                    <button type="submit" class="btn-ghost btn-sm">Deactivate</button>
+                    {% else %}
+                    <button type="submit" class="btn-sm">Activate</button>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <p class="muted">No organizations yet. Create the first one above.</p>
+        {% endfor %}
+    </div>
+</div>
+
+{% endblock %}

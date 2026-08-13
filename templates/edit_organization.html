@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Edit Organization — Leavepoint{% endblock %}
+{% block content %}
+
+<div class="card" style="max-width: 520px; margin: 40px auto;">
+    <h1>Edit organization</h1>
+    <p class="subtitle">Update {{ org.name }}'s details or subscription.</p>
+
+    <form method="POST">
+        <label for="name">Organization name</label>
+        <input type="text" id="name" name="name" value="{{ org.name }}" required>
+
+        <label for="industry">Industry</label>
+        <input type="text" id="industry" name="industry" value="{{ org.industry or '' }}">
+
+        <label for="contact_email">Contact email</label>
+        <input type="email" id="contact_email" name="contact_email" value="{{ org.contact_email or '' }}">
+
+        <label for="contact_phone">Contact phone</label>
+        <input type="text" id="contact_phone" name="contact_phone" value="{{ org.contact_phone or '' }}">
+
+        <label for="address">Address</label>
+        <input type="text" id="address" name="address" value="{{ org.address or '' }}">
+
+        <label for="website">Website</label>
+        <input type="text" id="website" name="website" value="{{ org.website or '' }}">
+
+        <label for="employee_count">Employee count</label>
+        <input type="number" id="employee_count" name="employee_count" value="{{ org.employee_count or '' }}">
+
+        <label for="subscription_type">Subscription type</label>
+        <select id="subscription_type" name="subscription_type">
+            <option value="">Select...</option>
+            <option value="Monthly" {% if org.subscription_type == "Monthly" %}selected{% endif %}>Monthly</option>
+            <option value="Quarterly" {% if org.subscription_type == "Quarterly" %}selected{% endif %}>Quarterly</option>
+            <option value="Annually" {% if org.subscription_type == "Annually" %}selected{% endif %}>Annually</option>
+        </select>
+
+        <label for="subscription_status">Subscription status</label>
+        <select id="subscription_status" name="subscription_status">
+            <option value="">Select...</option>
+            <option value="Trial" {% if org.subscription_status == "Trial" %}selected{% endif %}>Trial</option>
+            <option value="Active" {% if org.subscription_status == "Active" %}selected{% endif %}>Active</option>
+            <option value="Past Due" {% if org.subscription_status == "Past Due" %}selected{% endif %}>Past Due</option>
+            <option value="Cancelled" {% if org.subscription_status == "Cancelled" %}selected{% endif %}>Cancelled</option>
+        </select>
+
+        <button type="submit" style="width: 100%;">Save changes</button>
+    </form>
+</div>
+
+{% endblock %}

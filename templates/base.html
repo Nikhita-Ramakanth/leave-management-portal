@@ -3,7 +3,7 @@
 <head>
     <title>{% block title %}Leavepoint{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -11,11 +11,18 @@
         <div class="topbar-inner">
             <div class="brand">
                 <div class="brand-mark">
-                    <svg width="16" height="16" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#2A4FCC" stroke-width="2"/><path d="M10 5.5 L10 10 L13.5 12" stroke="#2A4FCC" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#4F46E5" stroke-width="2"/><path d="M10 5.5 L10 10 L13.5 12" stroke="#4F46E5" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
                 </div>
                 Leavepoint
             </div>
-            {% if current_user.is_authenticated %}
+            {% if current_user.is_authenticated and current_user.is_super_admin %}
+            <div class="nav-spacer"></div>
+            <div class="nav-links">
+                <span class="super-admin-pill">Super admin</span>
+                <span class="muted">{{ current_user.name }}</span>
+                <a href="/logout">Logout</a>
+            </div>
+            {% elif current_user.is_authenticated %}
             <div class="nav-links">
                 <a href="/">Home</a>
                 <a href="/apply">Apply for leave</a>

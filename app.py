@@ -18,6 +18,15 @@ class Organization(db.Model):
     name = db.Column(db.String(150), nullable=False)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    industry = db.Column(db.String(100), nullable=True)
+    contact_email = db.Column(db.String(120), nullable=True)
+    contact_phone = db.Column(db.String(20), nullable=True)
+    address = db.Column(db.String(255), nullable=True)
+    website = db.Column(db.String(255), nullable=True)
+    employee_count = db.Column(db.Integer, nullable=True)
+    subscription_type = db.Column(db.String(20), nullable=True)
+    subscription_status = db.Column(db.String(20), nullable=True)
+    subscription_start_date = db.Column(db.Date, nullable=True)
 
 
 class Holiday(db.Model):
@@ -96,6 +105,8 @@ def create_app(test_config=None):
 
     @app.route("/")
     def home():
+        if current_user.is_authenticated and current_user.is_super_admin:
+            return redirect("/super-admin")
         return render_template("index.html")
 
     @app.route("/apply", methods=["GET", "POST"])
@@ -203,6 +214,8 @@ def create_app(test_config=None):
             user = User.query.filter_by(email=request.form["email"]).first()
             if user and check_password_hash(user.password_hash, request.form["password"]):
                 login_user(user)
+                if user.is_super_admin:
+                    return redirect("/super-admin")
                 return redirect("/")
             return "Invalid email or password"
         return render_template("login.html")
@@ -305,6 +318,84 @@ def create_app(test_config=None):
         db.session.commit()
         return redirect("/users")
 
+    @app.route("/super-admin")
+    @login_required
+    def super_admin_dashboard():
+        if not current_user.is_super_admin:
+            return "Access denied - Super Admins only", 403
+        organizations = Organization.query.order_by(Organization.created_at.desc()).all()
+        total_orgs = len(organizations)
+        total_users = User.query.filter(User.organization_id.isnot(None)).count()
+        active_orgs = Organization.query.filter_by(is_active=True).count()
+        return render_template(
+            "super_admin_dashboard.html",
+            organizations=organizations,
+            total_orgs=total_orgs,
+            total_users=total_users,
+            active_orgs=active_orgs
+        )
+
+    @app.route("/super-admin/admins/new", methods=["GET", "POST"])
+    @login_required
+    def create_org_admin():
+        if not current_user.is_super_admin:
+            return "Access denied - Super Admins only", 403
+        if request.method == "POST":
+            if request.form["password"] != request.form["confirm_password"]:
+                return "Passwords do not match", 400
+            if len(request.form["password"]) < 8:
+                return "Password must be at least 8 characters", 400
+            if User.query.filter_by(email=request.form["email"]).first():
+                return "An account with this email already exists", 400
+
+            hashed_password = generate_password_hash(request.form["password"])
+            new_admin = User(
+                name=request.form["name"],
+                email=request.form["email"],
+                password_hash=hashed_password,
+                role="Admin",
+                organization_id=int(request.form["organization_id"])
+            )
+            db.session.add(new_admin)
+            db.session.commit()
+            return redirect("/super-admin")
+        organizations = Organization.query.filter_by(is_active=True).order_by(Organization.name).all()
+        return render_template("create_org_admin.html", organizations=organizations)
+
+    @app.route("/super-admin/organizations/<int:org_id>/toggle-active", methods=["POST"])
+    @login_required
+    def toggle_organization_active(org_id):
+        if not current_user.is_super_admin:
+            return "Access denied - Super Admins only", 403
+        org = db.session.get(Organization, org_id)
+        if org is None:
+            return "Organization not found", 404
+        org.is_active = not org.is_active
+        db.session.commit()
+        return redirect("/super-admin")
+
+    @app.route("/super-admin/organizations/<int:org_id>/edit", methods=["GET", "POST"])
+    @login_required
+    def edit_organization(org_id):
+        if not current_user.is_super_admin:
+            return "Access denied - Super Admins only", 403
+        org = db.session.get(Organization, org_id)
+        if org is None:
+            return "Organization not found", 404
+        if request.method == "POST":
+            org.name = request.form["name"]
+            org.industry = request.form.get("industry") or None
+            org.contact_email = request.form.get("contact_email") or None
+            org.contact_phone = request.form.get("contact_phone") or None
+            org.address = request.form.get("address") or None
+            org.website = request.form.get("website") or None
+            org.employee_count = int(request.form["employee_count"]) if request.form.get("employee_count") else None
+            org.subscription_type = request.form.get("subscription_type") or None
+            org.subscription_status = request.form.get("subscription_status") or None
+            db.session.commit()
+            return redirect("/super-admin")
+        return render_template("edit_organization.html", org=org)
+
     @app.cli.command("create-admin")
     def create_admin():
         import getpass
@@ -340,6 +431,28 @@ def create_app(test_config=None):
         user.organization_id = None
         db.session.commit()
         print(f"{user.name} ({user.email}) promoted to Super Admin.")
+
+    @app.route("/super-admin/organizations/new", methods=["GET", "POST"])
+    @login_required
+    def create_organization():
+        if not current_user.is_super_admin:
+            return "Access denied - Super Admins only", 403
+        if request.method == "POST":
+            new_org = Organization(
+                name=request.form["name"],
+                industry=request.form.get("industry") or None,
+                contact_email=request.form.get("contact_email") or None,
+                contact_phone=request.form.get("contact_phone") or None,
+                address=request.form.get("address") or None,
+                website=request.form.get("website") or None,
+                employee_count=int(request.form["employee_count"]) if request.form.get("employee_count") else None,
+                subscription_type=request.form.get("subscription_type") or None,
+                subscription_status=request.form.get("subscription_status") or None
+            )
+            db.session.add(new_org)
+            db.session.commit()
+            return redirect("/super-admin")
+        return render_template("create_organization.html")
 
     return app
 
