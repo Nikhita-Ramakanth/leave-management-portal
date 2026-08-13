@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Invite Created — Leavepoint{% endblock %}
+{% block content %}
+
+<div class="card" style="max-width: 480px; margin: 40px auto;">
+    <h1>Invite link created</h1>
+    <p class="subtitle">Share this link with the employee. It expires in 7 days and can only be used once.</p>
+
+    <input type="text" value="{{ invite_link }}" readonly onclick="this.select()">
+
+    <a class="btn" href="/invite">Create another invite</a>
+</div>
+
+{% endblock %}

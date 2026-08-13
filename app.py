@@ -28,6 +28,20 @@ class Organization(db.Model):
     subscription_status = db.Column(db.String(20), nullable=True)
     subscription_start_date = db.Column(db.Date, nullable=True)
 
+class Invite(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(64), unique=True, nullable=False)
+    organization_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=False)
+    organization = db.relationship("Organization", backref="invites")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, nullable=False, default=False)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), nullable=False)
+    role = db.Column(db.String(30), nullable=False)
+    practice = db.Column(db.String(50), nullable=True)
+    manager_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    manager = db.relationship("User", foreign_keys=[manager_id])
 
 class Holiday(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -168,45 +182,38 @@ def create_app(test_config=None):
 
     @app.route("/register", methods=["GET", "POST"])
     def register():
-        if request.method == "POST":
-            submitted_role = request.form["role"]
-            if submitted_role not in PUBLIC_ROLES:
-                return "Invalid role selection", 400
+        token = request.args.get("invite") or request.form.get("invite")
+        invite = Invite.query.filter_by(token=token).first() if token else None
 
+        if invite is None or invite.used or invite.expires_at < datetime.utcnow():
+            return render_template("invite_invalid.html"), 400
+
+        if request.method == "POST":
             if request.form["password"] != request.form["confirm_password"]:
                 return "Passwords do not match", 400
 
             if len(request.form["password"]) < 8:
                 return "Password must be at least 8 characters", 400
 
-            manager_id = request.form.get("manager_id") or None
-            practice = request.form.get("practice") or None
-
-            if manager_id:
-                selected_manager = db.session.get(User, int(manager_id))
-                if selected_manager is None or selected_manager.practice != practice:
-                    return "Invalid selection: manager must belong to the same practice", 400
-
-            raw_phone = request.form.get("phone_number") or ""
-            full_phone = f"{request.form.get('country_code', '')} {raw_phone}".strip() if raw_phone else None
-            if User.query.filter_by(email=request.form["email"]).first():
+            if User.query.filter_by(email=invite.email).first():
                 return "An account with this email already exists", 400
 
             hashed_password = generate_password_hash(request.form["password"])
             new_user = User(
-                name=request.form["name"],
-                email=request.form["email"],
+                name=invite.name,
+                email=invite.email,
                 password_hash=hashed_password,
-                role=submitted_role,
-                practice=practice,
-                phone_number=full_phone,
-                manager_id=manager_id
+                role=invite.role,
+                practice=invite.practice,
+                manager_id=invite.manager_id,
+                organization_id=invite.organization_id
             )
             db.session.add(new_user)
+            invite.used = True
             db.session.commit()
             return redirect("/login")
-        potential_managers = User.query.filter(User.role.notin_(["Employee", "Admin"])).all()
-        return render_template("register.html", managers=potential_managers, roles=PUBLIC_ROLES, practices=PRACTICES)
+
+        return render_template("register.html", invite=invite, invite_token=token)
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
@@ -281,7 +288,10 @@ def create_app(test_config=None):
     def manage_users():
         if current_user.role != "Admin":
             return "Access denied - Admins only", 403
-        all_users = User.query.all()
+        all_users = User.query.filter(
+            User.id != current_user.id,
+            User.organization_id == current_user.organization_id
+        ).all()
         return render_template("manage_users.html", users=all_users)
 
     @app.route("/users/<int:user_id>/reassign", methods=["POST"])
@@ -396,6 +406,50 @@ def create_app(test_config=None):
             return redirect("/super-admin")
         return render_template("edit_organization.html", org=org)
 
+    @app.route("/invite", methods=["GET", "POST"])
+    @login_required
+    def create_invite():
+        if current_user.role != "Admin":
+            return "Access denied - Admins only", 403
+        if request.method == "POST":
+            submitted_role = request.form["role"]
+            if submitted_role not in PUBLIC_ROLES:
+                return "Invalid role selection", 400
+
+            manager_id = request.form.get("manager_id") or None
+            practice = request.form.get("practice") or None
+
+            if manager_id:
+                selected_manager = db.session.get(User, int(manager_id))
+                if selected_manager is None or selected_manager.practice != practice:
+                    return "Invalid selection: manager must belong to the same practice", 400
+
+            if User.query.filter_by(email=request.form["email"]).first():
+                return "An account with this email already exists", 400
+
+            import secrets as secrets_module
+            token = secrets_module.token_urlsafe(32)
+            new_invite = Invite(
+                token=token,
+                organization_id=current_user.organization_id,
+                expires_at=datetime.utcnow() + timedelta(days=7),
+                name=request.form["name"],
+                email=request.form["email"],
+                role=submitted_role,
+                practice=practice,
+                manager_id=manager_id
+            )
+            db.session.add(new_invite)
+            db.session.commit()
+            invite_link = f"{request.host_url}register?invite={token}"
+            return render_template("invite_created.html", invite_link=invite_link)
+
+        potential_managers = User.query.filter(
+            User.role.notin_(["Employee", "Admin"]),
+            User.organization_id == current_user.organization_id
+        ).all()
+        return render_template("create_invite.html", managers=potential_managers, roles=PUBLIC_ROLES, practices=PRACTICES)
+    
     @app.cli.command("create-admin")
     def create_admin():
         import getpass

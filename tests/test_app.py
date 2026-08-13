@@ -16,16 +16,35 @@ def client():
 
 
 def register(client, name, email, password, role, practice=None, manager_id=None):
+    with client.application.app_context():
+        from app import Organization, Invite, db
+        import secrets as secrets_module
+        from datetime import datetime, timedelta
+
+        org = Organization.query.first()
+        if org is None:
+            org = Organization(name="Test Org")
+            db.session.add(org)
+            db.session.commit()
+
+        token = secrets_module.token_urlsafe(16)
+        invite = Invite(
+            token=token,
+            organization_id=org.id,
+            expires_at=datetime.utcnow() + timedelta(days=7),
+            name=name,
+            email=email,
+            role=role,
+            practice=practice,
+            manager_id=manager_id
+        )
+        db.session.add(invite)
+        db.session.commit()
+
     return client.post("/register", data={
-        "name": name,
-        "email": email,
+        "invite": token,
         "password": password,
-        "confirm_password": password,
-        "role": role,
-        "practice": practice or "",
-        "manager_id": manager_id or "",
-        "country_code": "+91",
-        "phone_number": ""
+        "confirm_password": password
     })
 
 
@@ -290,20 +309,31 @@ def test_separate_practice_hierarchies_are_isolated(client):
     assert b"Fin leave request" in response.data
     assert b"Dev leave request" not in response.data
 
-def test_cannot_register_with_manager_from_different_practice(client):
+
+def test_cannot_invite_with_manager_from_different_practice(client):
     register(client, "Head Dev2", "headdev2@test.com", "pass12345", "Head of Practice", "Development")
     with client.application.app_context():
         head_dev2_id = User.query.filter_by(email="headdev2@test.com").first().id
+        admin = User.query.filter_by(email="headdev2@test.com").first()
+        admin.role = "Admin"
+        db.session.commit()
+    login(client, "headdev2@test.com", "pass12345")
 
-    response = register(
-        client, "Sneaky Employee", "sneaky@test.com", "pass12345",
-        "Employee", "Finance", head_dev2_id
-    )
+    response = client.post("/invite", data={
+        "name": "Sneaky Employee",
+        "email": "sneaky@test.com",
+        "role": "Employee",
+        "practice": "Finance",
+        "manager_id": head_dev2_id
+    })
 
     assert response.status_code == 400
 
     with client.application.app_context():
-        assert User.query.filter_by(email="sneaky@test.com").first() is None
+        from app import Invite
+        assert Invite.query.filter_by(email="sneaky@test.com").first() is None
+
+
 def test_holidays_page_requires_admin_role(client):
     register(client, "Regular Employee2", "regular2@test.com", "pass12345", "Employee")
     login(client, "regular2@test.com", "pass12345")
@@ -376,6 +406,7 @@ def test_holiday_excluded_from_business_day_count(client):
 
     assert b">2<" in response.data
 
+
 def test_end_date_before_start_date_rejected(client):
     register(client, "Date Tester", "datetest@test.com", "pass12345", "Employee")
     login(client, "datetest@test.com", "pass12345")
@@ -392,14 +423,28 @@ def test_end_date_before_start_date_rejected(client):
     with client.application.app_context():
         from app import LeaveRequest
         saved = LeaveRequest.query.filter_by(reason="Invalid date range").first()
-        assert saved is None    
+        assert saved is None
 
-def test_admin_role_rejected_at_public_registration(client):
-    response = register(client, "Sneaky Admin", "sneakyadmin@test.com", "pass12345", "Admin")
+
+def test_admin_role_rejected_when_creating_invite(client):
+    register(client, "Some Admin", "someadmin@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        admin = User.query.filter_by(email="someadmin@test.com").first()
+        admin.role = "Admin"
+        db.session.commit()
+    login(client, "someadmin@test.com", "pass12345")
+
+    response = client.post("/invite", data={
+        "name": "Sneaky Admin",
+        "email": "sneakyadmin@test.com",
+        "role": "Admin",
+        "practice": ""
+    })
     assert response.status_code == 400
 
     with client.application.app_context():
-        assert User.query.filter_by(email="sneakyadmin@test.com").first() is None
+        from app import Invite
+        assert Invite.query.filter_by(email="sneakyadmin@test.com").first() is None
 
 
 def test_existing_admin_can_promote_another_user(client):
@@ -432,6 +477,7 @@ def test_non_admin_cannot_promote_users(client):
     response = client.post(f"/users/{target_id}/promote-admin")
     assert response.status_code == 403
 
+
 def test_duplicate_email_registration_rejected(client):
     register(client, "First User", "duplicate@test.com", "pass12345", "Employee")
 
@@ -443,6 +489,7 @@ def test_duplicate_email_registration_rejected(client):
         assert len(matching_users) == 1
         assert matching_users[0].name == "First User"
 
+
 def test_promote_super_admin_cli(client):
     register(client, "Promote Test", "promotetest@test.com", "pass12345", "Employee")
 
@@ -453,6 +500,7 @@ def test_promote_super_admin_cli(client):
         promoted = User.query.filter_by(email="promotetest@test.com").first()
         assert promoted.is_super_admin is True
         assert promoted.organization_id is None
+
 
 def test_super_admin_can_create_organization(client):
     register(client, "Super Test", "supertest@test.com", "pass12345", "Employee")
@@ -491,6 +539,7 @@ def test_non_super_admin_cannot_create_organization(client):
 
     response = client.post("/super-admin/organizations/new", data={"name": "Sneaky Org"})
     assert response.status_code == 403
+
 
 def test_super_admin_can_create_org_admin(client):
     register(client, "Super Test2", "supertest2@test.com", "pass12345", "Employee")
@@ -537,6 +586,7 @@ def test_non_super_admin_cannot_create_org_admin(client):
         "confirm_password": "pass12345"
     })
     assert response.status_code == 403
+
 
 def test_super_admin_can_toggle_organization_active(client):
     register(client, "Super Test3", "supertest3@test.com", "pass12345", "Employee")
@@ -586,6 +636,7 @@ def test_non_super_admin_cannot_toggle_organization_active(client):
     response = client.post(f"/super-admin/organizations/{org_id}/toggle-active")
     assert response.status_code == 403
 
+
 def test_super_admin_can_edit_organization(client):
     register(client, "Super Test4", "supertest4@test.com", "pass12345", "Employee")
     with client.application.app_context():
@@ -629,3 +680,47 @@ def test_non_super_admin_cannot_edit_organization(client):
 
     response = client.post(f"/super-admin/organizations/{org_id}/edit", data={"name": "Hacked Name"})
     assert response.status_code == 403
+
+
+def test_register_with_invalid_token_shows_invalid_page(client):
+    response = client.get("/register?invite=not-a-real-token")
+    assert response.status_code == 400
+
+
+def test_register_with_used_invite_rejected(client):
+    register(client, "Used Invite Test", "usedinvite@test.com", "pass12345", "Employee")
+
+    with client.application.app_context():
+        from app import Invite
+        used_invite = Invite.query.filter_by(email="usedinvite@test.com").first()
+        token = used_invite.token
+        assert used_invite.used is True
+
+    response = client.get(f"/register?invite={token}")
+    assert response.status_code == 400
+
+
+def test_register_with_expired_invite_rejected(client):
+    with client.application.app_context():
+        from app import Organization, Invite, db
+        from datetime import datetime, timedelta
+        import secrets as secrets_module
+
+        org = Organization(name="Expired Test Org")
+        db.session.add(org)
+        db.session.commit()
+
+        expired_token = secrets_module.token_urlsafe(16)
+        expired_invite = Invite(
+            token=expired_token,
+            organization_id=org.id,
+            expires_at=datetime.utcnow() - timedelta(days=1),
+            name="Expired Test",
+            email="expiredtest@test.com",
+            role="Employee"
+        )
+        db.session.add(expired_invite)
+        db.session.commit()
+
+    response = client.get(f"/register?invite={expired_token}")
+    assert response.status_code == 400

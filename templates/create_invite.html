@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Invite Employee — Leavepoint{% endblock %}
+{% block content %}
+
+<div class="card" style="max-width: 460px; margin: 40px auto;">
+    <h1>Invite an employee</h1>
+    <p class="subtitle">Set up their account details. They'll only need to set a password.</p>
+
+    <form method="POST">
+        <label for="name">Full name</label>
+        <input type="text" id="name" name="name" placeholder="Jordan Lee" required>
+
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" placeholder="name@company.com" required>
+
+        <label for="role">Role</label>
+        <select id="role" name="role">
+            {% for r in roles %}
+            <option value="{{ r }}">{{ r }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="practice">Practice</label>
+        <select id="practice" name="practice" onchange="filterManagers()">
+            <option value="">Select practice</option>
+            {% for p in practices %}
+            <option value="{{ p }}">{{ p }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="manager_id">Reports to</label>
+        <select id="manager_id" name="manager_id">
+            <option value="">None / top of hierarchy</option>
+            {% for manager in managers %}
+            <option value="{{ manager.id }}" data-practice="{{ manager.practice }}">{{ manager.name }} ({{ manager.role }})</option>
+            {% endfor %}
+        </select>
+
+        <button type="submit" style="width: 100%;">Generate invite link</button>
+    </form>
+</div>
+
+<script>
+    function filterManagers() {
+        const selectedPractice = document.getElementById("practice").value;
+        const managerOptions = document.getElementById("manager_id").options;
+        for (let i = 0; i < managerOptions.length; i++) {
+            const option = managerOptions[i];
+            const optionPractice = option.getAttribute("data-practice");
+            if (!optionPractice) {
+                option.style.display = "";
+            } else if (optionPractice === selectedPractice) {
+                option.style.display = "";
+            } else {
+                option.style.display = "none";
+            }
+        }
+        document.getElementById("manager_id").value = "";
+    }
+</script>
+
+{% endblock %}

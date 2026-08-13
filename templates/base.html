@@ -33,9 +33,11 @@
                 {% if current_user.role == "Admin" %}
                 <a href="/holidays">Holidays</a>
                 <a href="/users">Users</a>
+                <a href="/invite">Invite employee</a>
                 {% endif %}
             </div>
             <div class="nav-spacer"></div>
+            <span class="muted">{{ current_user.organization.name }}</span>
             <span class="balance-pill">{{ current_user.leave_balance }} days left</span>
             <div class="nav-links">
                 <span class="muted">{{ current_user.name }}</span>
@@ -45,7 +47,6 @@
             <div class="nav-spacer"></div>
             <div class="nav-links">
                 <a href="/login">Log in</a>
-                <a class="btn" href="/register">Create account</a>
             </div>
             {% endif %}
         </div>
