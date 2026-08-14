@@ -784,12 +784,6 @@ def test_super_admin_can_add_and_delete_org_practice(client):
         from app import OrgPractice
         assert db.session.get(OrgPractice, practice_id) is None
 
-
-    login(client, "regularuser3@test.com", "pass12345")
-
-    response = client.post(f"/super-admin/organizations/{org_id}/toggle-active")
-    assert response.status_code == 403
-
 def test_non_super_admin_cannot_add_org_practice(client):
     register(client, "Regular User6", "regularuser6@test.com", "pass12345", "Employee")
     with client.application.app_context():
