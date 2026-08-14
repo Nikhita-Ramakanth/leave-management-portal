@@ -45,6 +45,11 @@
             <option value="Cancelled" {% if org.subscription_status == "Cancelled" %}selected{% endif %}>Cancelled</option>
         </select>
 
+        <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+            <a href="/super-admin/organizations/{{ org.id }}/roles" class="btn-ghost" style="flex: 1; text-align: center;">Add Roles & Hierarchy</a>
+            <a href="/super-admin/organizations/{{ org.id }}/practices" class="btn-ghost" style="flex: 1; text-align: center;">Add Departments</a>
+        </div>
+
         <button type="submit" style="width: 100%;">Save changes</button>
     </form>
 </div>

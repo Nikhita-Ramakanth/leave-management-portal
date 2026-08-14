@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Set Up {{ org.name }} — Leavepoint{% endblock %}
+{% block content %}
+
+<div class="card" style="max-width: 480px; margin: 40px auto; text-align: center;">
+    <h1>{{ org.name }} created</h1>
+    <p class="subtitle">Next, set up its roles and departments so its Admin can start inviting employees.</p>
+
+    <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+        <a class="btn" href="/super-admin/organizations/{{ org.id }}/roles">Add Roles & Hierarchy</a>
+        <a class="btn" href="/super-admin/organizations/{{ org.id }}/practices">Add Departments</a>
+    </div>
+
+    <a class="btn-ghost" href="/super-admin">Skip for now, go to dashboard</a>
+</div>
+
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Departments — {{ org.name }} — Leavepoint{% endblock %}
+{% block content %}
+
+<div class="card" style="max-width: 480px; margin: 40px auto;">
+    <h1>Departments for {{ org.name }}</h1>
+    <p class="subtitle">Groupings employees can be assigned to.</p>
+
+    <form method="POST" style="display: flex; gap: 10px; align-items: flex-end;">
+        <div style="flex: 1;">
+            <label for="name">Department name</label>
+            <input type="text" id="name" name="name" placeholder="Product">
+        </div>
+        <button type="submit" style="margin-bottom: 16px;">Add</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Department name</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for practice in practices %}
+            <tr>
+                <td>{{ practice.name }}</td>
+                <td>
+                    <form method="POST" action="/super-admin/organizations/{{ org.id }}/practices/{{ practice.id }}/delete" style="margin: 0;">
+                        <button type="submit" class="btn-danger btn-sm">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="2" class="muted">No departments defined yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="/super-admin/organizations/{{ org.id }}/setup" class="btn-ghost" style="margin-top: 20px; display: inline-block;">Back</a>
+</div>
+
+{% endblock %}

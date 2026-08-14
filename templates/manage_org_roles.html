@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Roles & Hierarchy — {{ org.name }} — Leavepoint{% endblock %}
+{% block content %}
+
+<div class="card" style="max-width: 520px; margin: 40px auto;">
+    <h1>Roles & hierarchy for {{ org.name }}</h1>
+    <p class="subtitle">Listed from the top of the organization down. Higher numbers sit above lower ones.</p>
+
+    <form method="POST" style="display: flex; gap: 10px; align-items: flex-end;">
+        <div style="flex: 1;">
+            <label for="title">Role title</label>
+            <input type="text" id="title" name="title" placeholder="Team Lead" required>
+        </div>
+        <div style="width: 100px;">
+            <label for="level">Level</label>
+            <input type="number" id="level" name="level" placeholder="2" min="1" required>
+        </div>
+        <button type="submit" style="margin-bottom: 16px;">Add</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Level</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for role in roles %}
+            <tr>
+                <td>
+                    {{ role.title }}
+                    {% if loop.first and loop.last %}
+                    <div class="muted">Only role defined</div>
+                    {% elif loop.first %}
+                    <div class="muted">Top of hierarchy</div>
+                    {% elif loop.last %}
+                    <div class="muted">Bottom of hierarchy</div>
+                    {% endif %}
+                </td>
+                <td class="mono">{{ role.level }}</td>
+                <td>
+                    <form method="POST" action="/super-admin/organizations/{{ org.id }}/roles/{{ role.id }}/delete" style="margin: 0;">
+                        <button type="submit" class="btn-danger btn-sm">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="muted">No roles defined yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="/super-admin/organizations/{{ org.id }}/setup" class="btn-ghost" style="margin-top: 20px; display: inline-block;">Back</a>
+</div>
+
+{% endblock %}

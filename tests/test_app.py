@@ -636,6 +636,173 @@ def test_non_super_admin_cannot_toggle_organization_active(client):
     response = client.post(f"/super-admin/organizations/{org_id}/toggle-active")
     assert response.status_code == 403
 
+def test_duplicate_organization_name_rejected_on_create(client):
+    register(client, "Super Test5", "supertest5@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        user = User.query.filter_by(email="supertest5@test.com").first()
+        user.is_super_admin = True
+        user.organization_id = None
+        db.session.commit()
+
+    login(client, "supertest5@test.com", "pass12345")
+
+    client.post("/super-admin/organizations/new", data={"name": "Duplicate Org"})
+    response = client.post("/super-admin/organizations/new", data={"name": "Duplicate Org"})
+    assert response.status_code == 400
+
+    with client.application.app_context():
+        from app import Organization
+        matching = Organization.query.filter_by(name="Duplicate Org").all()
+        assert len(matching) == 1
+
+
+def test_duplicate_organization_name_rejected_on_edit(client):
+    register(client, "Super Test6", "supertest6@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        from app import Organization
+        user = User.query.filter_by(email="supertest6@test.com").first()
+        user.is_super_admin = True
+        user.organization_id = None
+        db.session.commit()
+
+        org_a = Organization(name="Org A")
+        org_b = Organization(name="Org B")
+        db.session.add_all([org_a, org_b])
+        db.session.commit()
+        org_b_id = org_b.id
+
+    login(client, "supertest6@test.com", "pass12345")
+
+    response = client.post(f"/super-admin/organizations/{org_b_id}/edit", data={"name": "Org A"})
+    assert response.status_code == 400
+
+    with client.application.app_context():
+        from app import Organization
+        unchanged = db.session.get(Organization, org_b_id)
+        assert unchanged.name == "Org B"
+
+
+def test_create_organization_redirects_to_setup(client):
+    register(client, "Super Test7", "supertest7@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        user = User.query.filter_by(email="supertest7@test.com").first()
+        user.is_super_admin = True
+        user.organization_id = None
+        db.session.commit()
+
+    login(client, "supertest7@test.com", "pass12345")
+
+    response = client.post("/super-admin/organizations/new", data={"name": "Setup Flow Org"})
+    assert response.status_code == 302
+    assert "/setup" in response.location
+
+
+def test_super_admin_can_add_and_delete_org_role(client):
+    register(client, "Super Test8", "supertest8@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        from app import Organization
+        user = User.query.filter_by(email="supertest8@test.com").first()
+        user.is_super_admin = True
+        user.organization_id = None
+        db.session.commit()
+
+        org = Organization(name="Role Test Org")
+        db.session.add(org)
+        db.session.commit()
+        org_id = org.id
+
+    login(client, "supertest8@test.com", "pass12345")
+
+    response = client.post(f"/super-admin/organizations/{org_id}/roles", data={
+        "title": "Team Lead",
+        "level": "2"
+    })
+    assert response.status_code == 302
+
+    with client.application.app_context():
+        from app import OrgRole
+        role = OrgRole.query.filter_by(organization_id=org_id, title="Team Lead").first()
+        assert role is not None
+        assert role.level == 2
+        role_id = role.id
+
+    response = client.post(f"/super-admin/organizations/{org_id}/roles/{role_id}/delete")
+    assert response.status_code == 302
+
+    with client.application.app_context():
+        from app import OrgRole
+        assert db.session.get(OrgRole, role_id) is None
+
+
+def test_non_super_admin_cannot_add_org_role(client):
+    register(client, "Regular User5", "regularuser5@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        from app import Organization
+        org = Organization(name="Protected Role Org")
+        db.session.add(org)
+        db.session.commit()
+        org_id = org.id
+
+    login(client, "regularuser5@test.com", "pass12345")
+
+    response = client.post(f"/super-admin/organizations/{org_id}/roles", data={
+        "title": "Sneaky Role",
+        "level": "5"
+    })
+    assert response.status_code == 403
+
+
+def test_super_admin_can_add_and_delete_org_practice(client):
+    register(client, "Super Test9", "supertest9@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        from app import Organization
+        user = User.query.filter_by(email="supertest9@test.com").first()
+        user.is_super_admin = True
+        user.organization_id = None
+        db.session.commit()
+
+        org = Organization(name="Practice Test Org")
+        db.session.add(org)
+        db.session.commit()
+        org_id = org.id
+
+    login(client, "supertest9@test.com", "pass12345")
+
+    response = client.post(f"/super-admin/organizations/{org_id}/practices", data={"name": "Product"})
+    assert response.status_code == 302
+
+    with client.application.app_context():
+        from app import OrgPractice
+        practice = OrgPractice.query.filter_by(organization_id=org_id, name="Product").first()
+        assert practice is not None
+        practice_id = practice.id
+
+    response = client.post(f"/super-admin/organizations/{org_id}/practices/{practice_id}/delete")
+    assert response.status_code == 302
+
+    with client.application.app_context():
+        from app import OrgPractice
+        assert db.session.get(OrgPractice, practice_id) is None
+
+
+    login(client, "regularuser3@test.com", "pass12345")
+
+    response = client.post(f"/super-admin/organizations/{org_id}/toggle-active")
+    assert response.status_code == 403
+
+def test_non_super_admin_cannot_add_org_practice(client):
+    register(client, "Regular User6", "regularuser6@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        from app import Organization
+        org = Organization(name="Protected Practice Org")
+        db.session.add(org)
+        db.session.commit()
+        org_id = org.id
+
+    login(client, "regularuser6@test.com", "pass12345")
+
+    response = client.post(f"/super-admin/organizations/{org_id}/practices", data={"name": "Sneaky Dept"})
+    assert response.status_code == 403
 
 def test_super_admin_can_edit_organization(client):
     register(client, "Super Test4", "supertest4@test.com", "pass12345", "Employee")

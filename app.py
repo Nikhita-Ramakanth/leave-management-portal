@@ -28,6 +28,19 @@ class Organization(db.Model):
     subscription_status = db.Column(db.String(20), nullable=True)
     subscription_start_date = db.Column(db.Date, nullable=True)
 
+class OrgRole(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=False)
+    organization = db.relationship("Organization", backref="org_roles")
+    title = db.Column(db.String(50), nullable=False)
+    level = db.Column(db.Integer, nullable=False)
+
+
+class OrgPractice(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=False)
+    organization = db.relationship("Organization", backref="org_practices")
+    name = db.Column(db.String(50), nullable=False)
 class Invite(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     token = db.Column(db.String(64), unique=True, nullable=False)
@@ -92,7 +105,8 @@ class User(UserMixin, db.Model):
     is_super_admin = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     organization_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
     organization = db.relationship("Organization", backref="users")
-
+    org_role_id = db.Column(db.Integer, db.ForeignKey("org_role.id"), nullable=True)
+    org_role = db.relationship("OrgRole", backref="users")
 
 def create_app(test_config=None):
     app = Flask(__name__)
@@ -393,6 +407,12 @@ def create_app(test_config=None):
         if org is None:
             return "Organization not found", 404
         if request.method == "POST":
+            existing = Organization.query.filter(
+                Organization.name == request.form["name"],
+                Organization.id != org.id
+            ).first()
+            if existing:
+                return "An organization with this name already exists", 400
             org.name = request.form["name"]
             org.industry = request.form.get("industry") or None
             org.contact_email = request.form.get("contact_email") or None
@@ -405,6 +425,69 @@ def create_app(test_config=None):
             db.session.commit()
             return redirect("/super-admin")
         return render_template("edit_organization.html", org=org)
+
+    @app.route("/super-admin/organizations/<int:org_id>/roles", methods=["GET", "POST"])
+    @login_required
+    def manage_org_roles(org_id):
+        if not current_user.is_super_admin:
+            return "Access denied - Super Admins only", 403
+        org = db.session.get(Organization, org_id)
+        if org is None:
+            return "Organization not found", 404
+        if request.method == "POST":
+            new_role = OrgRole(
+                organization_id=org_id,
+                title=request.form["title"],
+                level=int(request.form["level"])
+            )
+            db.session.add(new_role)
+            db.session.commit()
+            return redirect(f"/super-admin/organizations/{org_id}/roles")
+        roles = OrgRole.query.filter_by(organization_id=org_id).order_by(OrgRole.level.desc()).all()
+        return render_template("manage_org_roles.html", org=org, roles=roles)
+
+    @app.route("/super-admin/organizations/<int:org_id>/roles/<int:role_id>/delete", methods=["POST"])
+    @login_required
+    def delete_org_role(org_id, role_id):
+        if not current_user.is_super_admin:
+            return "Access denied - Super Admins only", 403
+        role = db.session.get(OrgRole, role_id)
+        if role is None or role.organization_id != org_id:
+            return "Role not found", 404
+        db.session.delete(role)
+        db.session.commit()
+        return redirect(f"/super-admin/organizations/{org_id}/roles")
+
+    @app.route("/super-admin/organizations/<int:org_id>/practices", methods=["GET", "POST"])
+    @login_required
+    def manage_org_practices(org_id):
+        if not current_user.is_super_admin:
+            return "Access denied - Super Admins only", 403
+        org = db.session.get(Organization, org_id)
+        if org is None:
+            return "Organization not found", 404
+        if request.method == "POST":
+            new_practice = OrgPractice(
+                organization_id=org_id,
+                name=request.form["name"]
+            )
+            db.session.add(new_practice)
+            db.session.commit()
+            return redirect(f"/super-admin/organizations/{org_id}/practices")
+        practices = OrgPractice.query.filter_by(organization_id=org_id).order_by(OrgPractice.name).all()
+        return render_template("manage_org_practices.html", org=org, practices=practices)
+
+    @app.route("/super-admin/organizations/<int:org_id>/practices/<int:practice_id>/delete", methods=["POST"])
+    @login_required
+    def delete_org_practice(org_id, practice_id):
+        if not current_user.is_super_admin:
+            return "Access denied - Super Admins only", 403
+        practice = db.session.get(OrgPractice, practice_id)
+        if practice is None or practice.organization_id != org_id:
+            return "Practice not found", 404
+        db.session.delete(practice)
+        db.session.commit()
+        return redirect(f"/super-admin/organizations/{org_id}/practices")
 
     @app.route("/invite", methods=["GET", "POST"])
     @login_required
@@ -492,6 +575,8 @@ def create_app(test_config=None):
         if not current_user.is_super_admin:
             return "Access denied - Super Admins only", 403
         if request.method == "POST":
+            if Organization.query.filter_by(name=request.form["name"]).first():
+                return "An organization with this name already exists", 400
             new_org = Organization(
                 name=request.form["name"],
                 industry=request.form.get("industry") or None,
@@ -505,8 +590,18 @@ def create_app(test_config=None):
             )
             db.session.add(new_org)
             db.session.commit()
-            return redirect("/super-admin")
+            return redirect(f"/super-admin/organizations/{new_org.id}/setup")
         return render_template("create_organization.html")
+
+    @app.route("/super-admin/organizations/<int:org_id>/setup")
+    @login_required
+    def org_setup(org_id):
+        if not current_user.is_super_admin:
+            return "Access denied - Super Admins only", 403
+        org = db.session.get(Organization, org_id)
+        if org is None:
+            return "Organization not found", 404
+        return render_template("org_setup.html", org=org)
 
     return app
 
