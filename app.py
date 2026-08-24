@@ -13,6 +13,12 @@ PUBLIC_ROLES = ["Employee", "Manager", "Senior Manager", "Head of Practice"]
 PRACTICES = ["Human Resources", "Finance", "Development", "Testing"]
 
 
+def error_response(message, status_code=400):
+    titles = {400: "Invalid request", 403: "Access denied", 404: "Not found"}
+    title = titles.get(status_code, "Something went wrong")
+    return render_template("error.html", title=title, message=message), status_code
+
+
 class Organization(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(150), nullable=False)
@@ -145,7 +151,7 @@ def create_app(test_config=None):
     def apply():
         if request.method == "POST":
             if request.form["end_date"] < request.form["start_date"]:
-                return "End date cannot be before start date", 400
+                return error_response("End date cannot be before start date", 400)
             days_requested = calculate_business_days(request.form["start_date"], request.form["end_date"])
             if days_requested > current_user.leave_balance:
                 return render_template(
@@ -172,7 +178,7 @@ def create_app(test_config=None):
     def apply_success(request_id):
         leave_request = LeaveRequest.query.get_or_404(request_id)
         if leave_request.user_id != current_user.id:
-            return "Access denied", 403
+            return error_response("Access denied", 403)
         days = calculate_business_days(leave_request.start_date, leave_request.end_date)
         return render_template(
             "apply_success.html",
@@ -207,13 +213,13 @@ def create_app(test_config=None):
 
         if request.method == "POST":
             if request.form["password"] != request.form["confirm_password"]:
-                return "Passwords do not match", 400
+                return error_response("Passwords do not match", 400)
 
             if len(request.form["password"]) < 8:
-                return "Password must be at least 8 characters", 400
+                return error_response("Password must be at least 8 characters", 400)
 
             if User.query.filter_by(email=invite.email).first():
-                return "An account with this email already exists", 400
+                return error_response("An account with this email already exists", 400)
 
             hashed_password = generate_password_hash(request.form["password"])
             new_user = User(
@@ -242,7 +248,7 @@ def create_app(test_config=None):
                 if user.is_super_admin:
                     return redirect("/super-admin")
                 return redirect("/")
-            return "Invalid email or password"
+            return error_response("Invalid email or password", 401)
         return render_template("login.html")
 
     @app.route("/logout")
@@ -254,7 +260,7 @@ def create_app(test_config=None):
     @login_required
     def manage_requests():
         if not current_user.team_members:
-            return "Access denied - you have no team members to manage", 403
+            return error_response("Access denied - you have no team members to manage", 403)
         team_ids = [member.id for member in current_user.team_members]
         pending = LeaveRequest.query.filter(
             LeaveRequest.user_id.in_(team_ids),
@@ -267,7 +273,7 @@ def create_app(test_config=None):
     def approve_request(request_id):
         leave_request = LeaveRequest.query.get_or_404(request_id)
         if leave_request.user.manager_id != current_user.id:
-            return "Access denied - not your team member", 403
+            return error_response("Access denied - not your team member", 403)
         days = calculate_business_days(leave_request.start_date, leave_request.end_date)
         leave_request.user.leave_balance -= days
         leave_request.status = "Approved"
@@ -280,7 +286,7 @@ def create_app(test_config=None):
     def reject_request(request_id):
         leave_request = LeaveRequest.query.get_or_404(request_id)
         if leave_request.user.manager_id != current_user.id:
-            return "Access denied - not your team member", 403
+            return error_response("Access denied - not your team member", 403)
         leave_request.status = "Rejected"
         leave_request.manager_comment = request.form.get("comment", "")
         db.session.commit()
@@ -290,7 +296,7 @@ def create_app(test_config=None):
     @login_required
     def holidays():
         if current_user.role != "Admin":
-            return "Access denied - Admins only", 403
+            return error_response("Access denied - Admins only", 403)
         if request.method == "POST":
             new_holiday = Holiday(
                 date=request.form["date"],
@@ -305,7 +311,7 @@ def create_app(test_config=None):
     @login_required
     def manage_users():
         if current_user.role != "Admin":
-            return "Access denied - Admins only", 403
+            return error_response("Access denied - Admins only", 403)
         all_users = User.query.filter(
             User.id != current_user.id,
             User.organization_id == current_user.organization_id
@@ -316,19 +322,19 @@ def create_app(test_config=None):
     @login_required
     def reassign_user(user_id):
         if current_user.role != "Admin":
-            return "Access denied - Admins only", 403
+            return error_response("Access denied - Admins only", 403)
         user_to_update = db.session.get(User, user_id)
         if user_to_update is None:
-            return "User not found", 404
+            return error_response("User not found", 404)
 
         new_manager_id = request.form.get("manager_id") or None
 
         if new_manager_id:
             new_manager = db.session.get(User, int(new_manager_id))
-            if new_manager is None or new_manager.practice != user_to_update.practice:
-                return "Invalid selection: manager must belong to the same practice", 400
+            if new_manager is None or new_manager.org_practice_id != user_to_update.org_practice_id:
+                return error_response("Invalid selection: manager must belong to the same department", 400)
             if int(new_manager_id) == user_to_update.id:
-                return "A user cannot report to themselves", 400
+                return error_response("A user cannot report to themselves", 400)
 
         user_to_update.manager_id = new_manager_id
         db.session.commit()
@@ -338,10 +344,10 @@ def create_app(test_config=None):
     @login_required
     def promote_admin(user_id):
         if current_user.role != "Admin":
-            return "Access denied - Admins only", 403
+            return error_response("Access denied - Admins only", 403)
         user_to_promote = db.session.get(User, user_id)
         if user_to_promote is None:
-            return "User not found", 404
+            return error_response("User not found", 404)
         user_to_promote.role = "Admin"
         db.session.commit()
         return redirect("/users")
@@ -350,7 +356,7 @@ def create_app(test_config=None):
     @login_required
     def super_admin_dashboard():
         if not current_user.is_super_admin:
-            return "Access denied - Super Admins only", 403
+            return error_response("Access denied - Super Admins only", 403)
         organizations = Organization.query.order_by(Organization.created_at.desc()).all()
         total_orgs = len(organizations)
         total_users = User.query.filter(User.organization_id.isnot(None)).count()
@@ -367,14 +373,14 @@ def create_app(test_config=None):
     @login_required
     def create_org_admin():
         if not current_user.is_super_admin:
-            return "Access denied - Super Admins only", 403
+            return error_response("Access denied - Super Admins only", 403)
         if request.method == "POST":
             if request.form["password"] != request.form["confirm_password"]:
-                return "Passwords do not match", 400
+                return error_response("Passwords do not match", 400)
             if len(request.form["password"]) < 8:
-                return "Password must be at least 8 characters", 400
+                return error_response("Password must be at least 8 characters", 400)
             if User.query.filter_by(email=request.form["email"]).first():
-                return "An account with this email already exists", 400
+                return error_response("An account with this email already exists", 400)
 
             hashed_password = generate_password_hash(request.form["password"])
             new_admin = User(
@@ -394,10 +400,10 @@ def create_app(test_config=None):
     @login_required
     def toggle_organization_active(org_id):
         if not current_user.is_super_admin:
-            return "Access denied - Super Admins only", 403
+            return error_response("Access denied - Super Admins only", 403)
         org = db.session.get(Organization, org_id)
         if org is None:
-            return "Organization not found", 404
+            return error_response("Organization not found", 404)
         org.is_active = not org.is_active
         db.session.commit()
         return redirect("/super-admin")
@@ -406,17 +412,17 @@ def create_app(test_config=None):
     @login_required
     def edit_organization(org_id):
         if not current_user.is_super_admin:
-            return "Access denied - Super Admins only", 403
+            return error_response("Access denied - Super Admins only", 403)
         org = db.session.get(Organization, org_id)
         if org is None:
-            return "Organization not found", 404
+            return error_response("Organization not found", 404)
         if request.method == "POST":
             existing = Organization.query.filter(
                 Organization.name == request.form["name"],
                 Organization.id != org.id
             ).first()
             if existing:
-                return "An organization with this name already exists", 400
+                return error_response("An organization with this name already exists", 400)
             org.name = request.form["name"]
             org.industry = request.form.get("industry") or None
             org.contact_email = request.form.get("contact_email") or None
@@ -434,10 +440,10 @@ def create_app(test_config=None):
     @login_required
     def manage_org_roles(org_id):
         if not current_user.is_super_admin:
-            return "Access denied - Super Admins only", 403
+            return error_response("Access denied - Super Admins only", 403)
         org = db.session.get(Organization, org_id)
         if org is None:
-            return "Organization not found", 404
+            return error_response("Organization not found", 404)
         if request.method == "POST":
             new_role = OrgRole(
                 organization_id=org_id,
@@ -454,10 +460,10 @@ def create_app(test_config=None):
     @login_required
     def delete_org_role(org_id, role_id):
         if not current_user.is_super_admin:
-            return "Access denied - Super Admins only", 403
+            return error_response("Access denied - Super Admins only", 403)
         role = db.session.get(OrgRole, role_id)
         if role is None or role.organization_id != org_id:
-            return "Role not found", 404
+            return error_response("Role not found", 404)
         db.session.delete(role)
         db.session.commit()
         return redirect(f"/super-admin/organizations/{org_id}/roles")
@@ -466,10 +472,10 @@ def create_app(test_config=None):
     @login_required
     def manage_org_practices(org_id):
         if not current_user.is_super_admin:
-            return "Access denied - Super Admins only", 403
+            return error_response("Access denied - Super Admins only", 403)
         org = db.session.get(Organization, org_id)
         if org is None:
-            return "Organization not found", 404
+            return error_response("Organization not found", 404)
         if request.method == "POST":
             new_practice = OrgPractice(
                 organization_id=org_id,
@@ -485,10 +491,10 @@ def create_app(test_config=None):
     @login_required
     def delete_org_practice(org_id, practice_id):
         if not current_user.is_super_admin:
-            return "Access denied - Super Admins only", 403
+            return error_response("Access denied - Super Admins only", 403)
         practice = db.session.get(OrgPractice, practice_id)
         if practice is None or practice.organization_id != org_id:
-            return "Practice not found", 404
+            return error_response("Practice not found", 404)
         db.session.delete(practice)
         db.session.commit()
         return redirect(f"/super-admin/organizations/{org_id}/practices")
@@ -497,11 +503,11 @@ def create_app(test_config=None):
     @login_required
     def create_invite():
         if current_user.role != "Admin":
-            return "Access denied - Admins only", 403
+            return error_response("Access denied - Admins only", 403)
         if request.method == "POST":
             org_role = db.session.get(OrgRole, int(request.form["org_role_id"]))
             if org_role is None or org_role.organization_id != current_user.organization_id:
-                return "Invalid role selection", 400
+                return error_response("Invalid role selection", 400)
 
             org_practice_id = request.form.get("org_practice_id") or None
             manager_id = request.form.get("manager_id") or None
@@ -509,14 +515,14 @@ def create_app(test_config=None):
             if manager_id:
                 selected_manager = db.session.get(User, int(manager_id))
                 if selected_manager is None:
-                    return "Invalid manager selection", 400
+                    return error_response("Invalid manager selection", 400)
                 manager_practice_id = selected_manager.org_practice_id
                 submitted_practice_id = int(org_practice_id) if org_practice_id else None
                 if manager_practice_id != submitted_practice_id:
-                    return "Invalid selection: manager must belong to the same department", 400
+                    return error_response("Invalid selection: manager must belong to the same department", 400)
 
             if User.query.filter_by(email=request.form["email"]).first():
-                return "An account with this email already exists", 400
+                return error_response("An account with this email already exists", 400)
 
             import secrets as secrets_module
             token = secrets_module.token_urlsafe(32)
@@ -594,10 +600,10 @@ def create_app(test_config=None):
     @login_required
     def create_organization():
         if not current_user.is_super_admin:
-            return "Access denied - Super Admins only", 403
+            return error_response("Access denied - Super Admins only", 403)
         if request.method == "POST":
             if Organization.query.filter_by(name=request.form["name"]).first():
-                return "An organization with this name already exists", 400
+                return error_response("An organization with this name already exists", 400)
             new_org = Organization(
                 name=request.form["name"],
                 industry=request.form.get("industry") or None,
@@ -618,10 +624,10 @@ def create_app(test_config=None):
     @login_required
     def org_setup(org_id):
         if not current_user.is_super_admin:
-            return "Access denied - Super Admins only", 403
+            return error_response("Access denied - Super Admins only", 403)
         org = db.session.get(Organization, org_id)
         if org is None:
-            return "Organization not found", 404
+            return error_response("Organization not found", 404)
         return render_template("org_setup.html", org=org)
 
     return app
