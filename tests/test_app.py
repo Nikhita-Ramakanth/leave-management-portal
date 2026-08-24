@@ -17,7 +17,7 @@ def client():
 
 def register(client, name, email, password, role, practice=None, manager_id=None):
     with client.application.app_context():
-        from app import Organization, Invite, db
+        from app import Organization, OrgRole, OrgPractice, Invite, db
         import secrets as secrets_module
         from datetime import datetime, timedelta
 
@@ -27,6 +27,27 @@ def register(client, name, email, password, role, practice=None, manager_id=None
             db.session.add(org)
             db.session.commit()
 
+        org_role = OrgRole.query.filter_by(organization_id=org.id, title=role).first()
+        if org_role is None:
+            level_map = {
+                "Employee": 1,
+                "Manager": 2,
+                "Senior Manager": 3,
+                "Head of Practice": 4
+            }
+            org_role = OrgRole(organization_id=org.id, title=role, level=level_map.get(role, 1))
+            db.session.add(org_role)
+            db.session.commit()
+
+        org_practice_id = None
+        if practice:
+            org_practice = OrgPractice.query.filter_by(organization_id=org.id, name=practice).first()
+            if org_practice is None:
+                org_practice = OrgPractice(organization_id=org.id, name=practice)
+                db.session.add(org_practice)
+                db.session.commit()
+            org_practice_id = org_practice.id
+
         token = secrets_module.token_urlsafe(16)
         invite = Invite(
             token=token,
@@ -34,8 +55,8 @@ def register(client, name, email, password, role, practice=None, manager_id=None
             expires_at=datetime.utcnow() + timedelta(days=7),
             name=name,
             email=email,
-            role=role,
-            practice=practice,
+            org_role_id=org_role.id,
+            org_practice_id=org_practice_id,
             manager_id=manager_id
         )
         db.session.add(invite)
@@ -310,20 +331,30 @@ def test_separate_practice_hierarchies_are_isolated(client):
     assert b"Dev leave request" not in response.data
 
 
-def test_cannot_invite_with_manager_from_different_practice(client):
+def test_cannot_invite_with_manager_from_different_department(client):
     register(client, "Head Dev2", "headdev2@test.com", "pass12345", "Head of Practice", "Development")
     with client.application.app_context():
-        head_dev2_id = User.query.filter_by(email="headdev2@test.com").first().id
-        admin = User.query.filter_by(email="headdev2@test.com").first()
-        admin.role = "Admin"
+        from app import Organization, OrgRole, OrgPractice, db
+        head_dev2 = User.query.filter_by(email="headdev2@test.com").first()
+        head_dev2_id = head_dev2.id
+        head_dev2.role = "Admin"
+
+        org = Organization.query.first()
+        employee_role = OrgRole(organization_id=org.id, title="Employee", level=1)
+        db.session.add(employee_role)
+        finance_dept = OrgPractice(organization_id=org.id, name="Finance")
+        db.session.add(finance_dept)
         db.session.commit()
+        employee_role_id = employee_role.id
+        finance_dept_id = finance_dept.id
+
     login(client, "headdev2@test.com", "pass12345")
 
     response = client.post("/invite", data={
         "name": "Sneaky Employee",
         "email": "sneaky@test.com",
-        "role": "Employee",
-        "practice": "Finance",
+        "org_role_id": employee_role_id,
+        "org_practice_id": finance_dept_id,
         "manager_id": head_dev2_id
     })
 
@@ -426,25 +457,34 @@ def test_end_date_before_start_date_rejected(client):
         assert saved is None
 
 
-def test_admin_role_rejected_when_creating_invite(client):
+def test_cannot_invite_with_role_from_different_organization(client):
     register(client, "Some Admin", "someadmin@test.com", "pass12345", "Employee")
     with client.application.app_context():
+        from app import Organization, OrgRole, db
         admin = User.query.filter_by(email="someadmin@test.com").first()
         admin.role = "Admin"
         db.session.commit()
+
+        other_org = Organization(name="Other Org")
+        db.session.add(other_org)
+        db.session.commit()
+        other_role = OrgRole(organization_id=other_org.id, title="Foreign Role", level=2)
+        db.session.add(other_role)
+        db.session.commit()
+        other_role_id = other_role.id
+
     login(client, "someadmin@test.com", "pass12345")
 
     response = client.post("/invite", data={
-        "name": "Sneaky Admin",
-        "email": "sneakyadmin@test.com",
-        "role": "Admin",
-        "practice": ""
+        "name": "Sneaky Employee",
+        "email": "sneaky@test.com",
+        "org_role_id": other_role_id
     })
     assert response.status_code == 400
 
     with client.application.app_context():
         from app import Invite
-        assert Invite.query.filter_by(email="sneakyadmin@test.com").first() is None
+        assert Invite.query.filter_by(email="sneaky@test.com").first() is None
 
 
 def test_existing_admin_can_promote_another_user(client):
@@ -863,12 +903,16 @@ def test_register_with_used_invite_rejected(client):
 
 def test_register_with_expired_invite_rejected(client):
     with client.application.app_context():
-        from app import Organization, Invite, db
+        from app import Organization, OrgRole, Invite, db
         from datetime import datetime, timedelta
         import secrets as secrets_module
 
         org = Organization(name="Expired Test Org")
         db.session.add(org)
+        db.session.commit()
+
+        expired_role = OrgRole(organization_id=org.id, title="Employee", level=1)
+        db.session.add(expired_role)
         db.session.commit()
 
         expired_token = secrets_module.token_urlsafe(16)
@@ -878,7 +922,7 @@ def test_register_with_expired_invite_rejected(client):
             expires_at=datetime.utcnow() - timedelta(days=1),
             name="Expired Test",
             email="expiredtest@test.com",
-            role="Employee"
+            org_role_id=expired_role.id
         )
         db.session.add(expired_invite)
         db.session.commit()

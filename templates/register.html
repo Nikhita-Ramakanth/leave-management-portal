@@ -13,16 +13,16 @@
     <input type="text" value="{{ invite.email }}" disabled>
 
     <label>Role</label>
-    <input type="text" value="{{ invite.role }}" disabled>
+    <input type="text" value="{{ invite.org_role.title }}" disabled>
 
-    {% if invite.practice %}
-    <label>Practice</label>
-    <input type="text" value="{{ invite.practice }}" disabled>
+    {% if invite.org_practice %}
+    <label>Department</label>
+    <input type="text" value="{{ invite.org_practice.name }}" disabled>
     {% endif %}
 
     {% if invite.manager %}
     <label>Reports to</label>
-    <input type="text" value="{{ invite.manager.name }} ({{ invite.manager.role }})" disabled>
+    <input type="text" value="{{ invite.manager.name }}" disabled>
     {% endif %}
 
     <form method="POST">

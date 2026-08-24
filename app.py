@@ -51,8 +51,10 @@ class Invite(db.Model):
     used = db.Column(db.Boolean, nullable=False, default=False)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), nullable=False)
-    role = db.Column(db.String(30), nullable=False)
-    practice = db.Column(db.String(50), nullable=True)
+    org_role_id = db.Column(db.Integer, db.ForeignKey("org_role.id"), nullable=False)
+    org_role = db.relationship("OrgRole")
+    org_practice_id = db.Column(db.Integer, db.ForeignKey("org_practice.id"), nullable=True)
+    org_practice = db.relationship("OrgPractice")
     manager_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     manager = db.relationship("User", foreign_keys=[manager_id])
 
@@ -97,7 +99,8 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(30), nullable=False, default="Employee")
-    practice = db.Column(db.String(50), nullable=True)
+    org_practice_id = db.Column(db.Integer, db.ForeignKey("org_practice.id"), nullable=True)
+    org_practice = db.relationship("OrgPractice", backref="users")
     leave_balance = db.Column(db.Integer, nullable=False, default=24)
     phone_number = db.Column(db.String(20), nullable=True)
     manager_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
@@ -217,8 +220,9 @@ def create_app(test_config=None):
                 name=invite.name,
                 email=invite.email,
                 password_hash=hashed_password,
-                role=invite.role,
-                practice=invite.practice,
+                role="Employee",
+                org_role_id=invite.org_role_id,
+                org_practice_id=invite.org_practice_id,
                 manager_id=invite.manager_id,
                 organization_id=invite.organization_id
             )
@@ -495,17 +499,21 @@ def create_app(test_config=None):
         if current_user.role != "Admin":
             return "Access denied - Admins only", 403
         if request.method == "POST":
-            submitted_role = request.form["role"]
-            if submitted_role not in PUBLIC_ROLES:
+            org_role = db.session.get(OrgRole, int(request.form["org_role_id"]))
+            if org_role is None or org_role.organization_id != current_user.organization_id:
                 return "Invalid role selection", 400
 
+            org_practice_id = request.form.get("org_practice_id") or None
             manager_id = request.form.get("manager_id") or None
-            practice = request.form.get("practice") or None
 
             if manager_id:
                 selected_manager = db.session.get(User, int(manager_id))
-                if selected_manager is None or selected_manager.practice != practice:
-                    return "Invalid selection: manager must belong to the same practice", 400
+                if selected_manager is None:
+                    return "Invalid manager selection", 400
+                manager_practice_id = selected_manager.org_practice_id
+                submitted_practice_id = int(org_practice_id) if org_practice_id else None
+                if manager_practice_id != submitted_practice_id:
+                    return "Invalid selection: manager must belong to the same department", 400
 
             if User.query.filter_by(email=request.form["email"]).first():
                 return "An account with this email already exists", 400
@@ -518,8 +526,8 @@ def create_app(test_config=None):
                 expires_at=datetime.utcnow() + timedelta(days=7),
                 name=request.form["name"],
                 email=request.form["email"],
-                role=submitted_role,
-                practice=practice,
+                org_role_id=org_role.id,
+                org_practice_id=org_practice_id,
                 manager_id=manager_id
             )
             db.session.add(new_invite)
@@ -527,11 +535,24 @@ def create_app(test_config=None):
             invite_link = f"{request.host_url}register?invite={token}"
             return render_template("invite_created.html", invite_link=invite_link)
 
+        org_roles = OrgRole.query.filter_by(organization_id=current_user.organization_id).order_by(OrgRole.level.desc()).all()
+        org_practices = OrgPractice.query.filter_by(organization_id=current_user.organization_id).order_by(OrgPractice.name).all()
+        lowest_level = min((r.level for r in org_roles), default=None)
         potential_managers = User.query.filter(
-            User.role.notin_(["Employee", "Admin"]),
-            User.organization_id == current_user.organization_id
+            User.organization_id == current_user.organization_id,
+            User.role != "Admin",
+            User.org_role_id.isnot(None)
         ).all()
-        return render_template("create_invite.html", managers=potential_managers, roles=PUBLIC_ROLES, practices=PRACTICES)
+        potential_managers = [
+            m for m in potential_managers
+            if m.org_role and m.org_role.level != lowest_level
+        ]
+        return render_template(
+            "create_invite.html",
+            managers=potential_managers,
+            org_roles=org_roles,
+            org_practices=org_practices
+        )
     
     @app.cli.command("create-admin")
     def create_admin():

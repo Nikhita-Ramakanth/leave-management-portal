@@ -13,18 +13,19 @@
         <label for="email">Email</label>
         <input type="email" id="email" name="email" placeholder="name@company.com" required>
 
-        <label for="role">Role</label>
-        <select id="role" name="role">
-            {% for r in roles %}
-            <option value="{{ r }}">{{ r }}</option>
+        <label for="org_role_id">Role</label>
+        <select id="org_role_id" name="org_role_id" required>
+            <option value="">Select a role...</option>
+            {% for role in org_roles %}
+            <option value="{{ role.id }}">{{ role.title }}</option>
             {% endfor %}
         </select>
 
-        <label for="practice">Practice</label>
-        <select id="practice" name="practice" onchange="filterManagers()">
-            <option value="">Select practice</option>
-            {% for p in practices %}
-            <option value="{{ p }}">{{ p }}</option>
+        <label for="org_practice_id">Department</label>
+        <select id="org_practice_id" name="org_practice_id" onchange="filterManagers()">
+            <option value="">None</option>
+            {% for practice in org_practices %}
+            <option value="{{ practice.id }}">{{ practice.name }}</option>
             {% endfor %}
         </select>
 
@@ -32,7 +33,7 @@
         <select id="manager_id" name="manager_id">
             <option value="">None / top of hierarchy</option>
             {% for manager in managers %}
-            <option value="{{ manager.id }}" data-practice="{{ manager.practice }}">{{ manager.name }} ({{ manager.role }})</option>
+            <option value="{{ manager.id }}" data-practice-id="{{ manager.org_practice_id or '' }}">{{ manager.name }} ({{ manager.org_role.title if manager.org_role else 'Admin' }})</option>
             {% endfor %}
         </select>
 
@@ -42,14 +43,14 @@
 
 <script>
     function filterManagers() {
-        const selectedPractice = document.getElementById("practice").value;
+        const selectedPracticeId = document.getElementById("org_practice_id").value;
         const managerOptions = document.getElementById("manager_id").options;
         for (let i = 0; i < managerOptions.length; i++) {
             const option = managerOptions[i];
-            const optionPractice = option.getAttribute("data-practice");
-            if (!optionPractice) {
+            const optionPracticeId = option.getAttribute("data-practice-id");
+            if (!optionPracticeId) {
                 option.style.display = "";
-            } else if (optionPractice === selectedPractice) {
+            } else if (optionPracticeId === selectedPracticeId) {
                 option.style.display = "";
             } else {
                 option.style.display = "none";
