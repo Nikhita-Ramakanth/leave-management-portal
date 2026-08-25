@@ -929,3 +929,33 @@ def test_register_with_expired_invite_rejected(client):
 
     response = client.get(f"/register?invite={expired_token}")
     assert response.status_code == 400
+
+def test_invite_creation_works_even_without_email_configured(client):
+    register(client, "Email Test Admin", "emailtestadmin@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        from app import Organization, OrgRole
+        admin = User.query.filter_by(email="emailtestadmin@test.com").first()
+        admin.role = "Admin"
+        db.session.commit()
+
+        org = Organization.query.get(admin.organization_id)
+        test_role = OrgRole(organization_id=org.id, title="Test Role", level=1)
+        db.session.add(test_role)
+        db.session.commit()
+        role_id = test_role.id
+
+    login(client, "emailtestadmin@test.com", "pass12345")
+
+    response = client.post("/invite", data={
+        "name": "New Hire",
+        "email": "newhire@test.com",
+        "org_role_id": role_id
+    })
+
+    assert response.status_code == 200
+    assert b"Invite link created" in response.data
+
+    with client.application.app_context():
+        from app import Invite
+        invite = Invite.query.filter_by(email="newhire@test.com").first()
+        assert invite is not None

@@ -1,4 +1,6 @@
 import os
+import smtplib
+from email.mime.text import MIMEText
 from flask import Flask, render_template, request, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -18,6 +20,25 @@ def error_response(message, status_code=400):
     title = titles.get(status_code, "Something went wrong")
     return render_template("error.html", title=title, message=message), status_code
 
+def send_email(to_email, subject, body):
+    smtp_email = os.environ.get("SMTP_EMAIL")
+    smtp_password = os.environ.get("SMTP_APP_PASSWORD")
+    if not smtp_email or not smtp_password:
+        print(f"SMTP not configured - skipping email to {to_email}")
+        return False
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = smtp_email
+    msg["To"] = to_email
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(smtp_email, smtp_password)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"Failed to send email to {to_email}: {e}")
+        return False
 
 class Organization(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -539,7 +560,12 @@ def create_app(test_config=None):
             db.session.add(new_invite)
             db.session.commit()
             invite_link = f"{request.host_url}register?invite={token}"
-            return render_template("invite_created.html", invite_link=invite_link)
+            email_sent = send_email(
+                to_email=request.form["email"],
+                subject=f"You're invited to Leavepoint",
+                body=f"Hi {request.form['name']},\n\nYou've been invited to join Leavepoint. Click the link below to complete your registration and set your password:\n\n{invite_link}\n\nThis link expires in 7 days."
+            )
+            return render_template("invite_created.html", invite_link=invite_link, email_sent=email_sent)
 
         org_roles = OrgRole.query.filter_by(organization_id=current_user.organization_id).order_by(OrgRole.level.desc()).all()
         org_practices = OrgPractice.query.filter_by(organization_id=current_user.organization_id).order_by(OrgPractice.name).all()

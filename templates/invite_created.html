@@ -4,7 +4,11 @@
 
 <div class="card" style="max-width: 480px; margin: 40px auto;">
     <h1>Invite link created</h1>
-    <p class="subtitle">Share this link with the employee. It expires in 7 days and can only be used once.</p>
+    {% if email_sent %}
+    <p class="subtitle">An email with this link has been sent. You can also share the link below directly.</p>
+    {% else %}
+    <p class="subtitle">Email sending isn't configured yet — copy and share this link directly. It expires in 7 days and can only be used once.</p>
+    {% endif %}
 
     <input type="text" value="{{ invite_link }}" readonly onclick="this.select()">
 
