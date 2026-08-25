@@ -541,6 +541,8 @@ def create_app(test_config=None):
                 submitted_practice_id = int(org_practice_id) if org_practice_id else None
                 if manager_practice_id != submitted_practice_id:
                     return error_response("Invalid selection: manager must belong to the same department", 400)
+                if selected_manager.org_role is None or selected_manager.org_role.level <= org_role.level:
+                    return error_response("Invalid selection: manager must be at a higher level than the invited role", 400)
 
             if User.query.filter_by(email=request.form["email"]).first():
                 return error_response("An account with this email already exists", 400)

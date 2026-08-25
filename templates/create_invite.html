@@ -14,10 +14,10 @@
         <input type="email" id="email" name="email" placeholder="name@company.com" required>
 
         <label for="org_role_id">Role</label>
-        <select id="org_role_id" name="org_role_id" required>
+        <select id="org_role_id" name="org_role_id" required onchange="filterManagers()">
             <option value="">Select a role...</option>
             {% for role in org_roles %}
-            <option value="{{ role.id }}">{{ role.title }}</option>
+            <option value="{{ role.id }}" data-level="{{ role.level }}">{{ role.title }}</option>
             {% endfor %}
         </select>
 
@@ -33,7 +33,7 @@
         <select id="manager_id" name="manager_id">
             <option value="">None / top of hierarchy</option>
             {% for manager in managers %}
-            <option value="{{ manager.id }}" data-practice-id="{{ manager.org_practice_id or '' }}">{{ manager.name }} ({{ manager.org_role.title if manager.org_role else 'Admin' }})</option>
+            <option value="{{ manager.id }}" data-practice-id="{{ manager.org_practice_id or '' }}" data-level="{{ manager.org_role.level if manager.org_role else 999 }}">{{ manager.name }} ({{ manager.org_role.title if manager.org_role else 'Admin' }})</option>
             {% endfor %}
         </select>
 
@@ -44,13 +44,20 @@
 <script>
     function filterManagers() {
         const selectedPracticeId = document.getElementById("org_practice_id").value;
+        const roleSelect = document.getElementById("org_role_id");
+        const selectedRoleOption = roleSelect.options[roleSelect.selectedIndex];
+        const selectedRoleLevel = selectedRoleOption ? parseInt(selectedRoleOption.getAttribute("data-level")) : null;
+
         const managerOptions = document.getElementById("manager_id").options;
         for (let i = 0; i < managerOptions.length; i++) {
             const option = managerOptions[i];
             const optionPracticeId = option.getAttribute("data-practice-id");
-            if (!optionPracticeId) {
-                option.style.display = "";
-            } else if (optionPracticeId === selectedPracticeId) {
+            const optionLevel = parseInt(option.getAttribute("data-level"));
+
+            const practiceMatches = !optionPracticeId || optionPracticeId === selectedPracticeId;
+            const levelMatches = !selectedRoleLevel || isNaN(optionLevel) || optionLevel > selectedRoleLevel;
+
+            if (option.value === "" || (practiceMatches && levelMatches)) {
                 option.style.display = "";
             } else {
                 option.style.display = "none";

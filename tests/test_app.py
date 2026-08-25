@@ -959,3 +959,44 @@ def test_invite_creation_works_even_without_email_configured(client):
         from app import Invite
         invite = Invite.query.filter_by(email="newhire@test.com").first()
         assert invite is not None
+
+def test_cannot_invite_with_manager_at_lower_or_equal_level(client):
+    register(client, "Level Test Admin", "leveltestadmin@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        from app import Organization, OrgRole, User as UserModel, db
+        admin = User.query.filter_by(email="leveltestadmin@test.com").first()
+        admin.role = "Admin"
+        org_id = admin.organization_id
+        db.session.commit()
+
+        junior_role = OrgRole(organization_id=org_id, title="Junior", level=1)
+        senior_role = OrgRole(organization_id=org_id, title="Senior", level=2)
+        db.session.add_all([junior_role, senior_role])
+        db.session.commit()
+
+        junior_user = UserModel(
+            name="Existing Junior",
+            email="existingjunior@test.com",
+            password_hash="fake",
+            role="Employee",
+            organization_id=org_id,
+            org_role_id=junior_role.id
+        )
+        db.session.add(junior_user)
+        db.session.commit()
+        junior_user_id = junior_user.id
+        senior_role_id = senior_role.id
+
+    login(client, "leveltestadmin@test.com", "pass12345")
+
+    response = client.post("/invite", data={
+        "name": "New Senior",
+        "email": "newsenior@test.com",
+        "org_role_id": senior_role_id,
+        "manager_id": junior_user_id
+    })
+    assert response.status_code == 400
+
+    with client.application.app_context():
+        from app import Invite
+        assert Invite.query.filter_by(email="newsenior@test.com").first() is None
