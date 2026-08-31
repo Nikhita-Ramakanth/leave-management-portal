@@ -165,6 +165,8 @@ def create_app(test_config=None):
     def home():
         if current_user.is_authenticated and current_user.is_super_admin:
             return redirect("/super-admin")
+        if current_user.is_authenticated and current_user.team_members:
+            return redirect("/manage")
         return render_template("index.html")
 
     @app.route("/apply", methods=["GET", "POST"])
@@ -190,6 +192,13 @@ def create_app(test_config=None):
             )
             db.session.add(new_request)
             db.session.commit()
+
+            if current_user.manager:
+                send_email(
+                    to_email=current_user.manager.email,
+                    subject=f"New leave request from {current_user.name}",
+                    body=f"{current_user.name} has submitted a {new_request.leave_type} leave request from {new_request.start_date} to {new_request.end_date}.\n\nReason: {new_request.reason}\n\nReview it at {request.host_url}manage"
+                )
 
             return redirect(f"/apply/success/{new_request.id}")
         holidays_list = Holiday.query.order_by(Holiday.date).all()
@@ -300,6 +309,13 @@ def create_app(test_config=None):
         leave_request.status = "Approved"
         leave_request.manager_comment = request.form.get("comment", "")
         db.session.commit()
+
+        send_email(
+            to_email=leave_request.user.email,
+            subject="Your leave request was approved",
+            body=f"Your {leave_request.leave_type} leave request from {leave_request.start_date} to {leave_request.end_date} has been approved.\n\nComment: {leave_request.manager_comment}"
+        )
+
         return redirect("/manage")
 
     @app.route("/manage/<int:request_id>/reject", methods=["POST"])
@@ -311,6 +327,13 @@ def create_app(test_config=None):
         leave_request.status = "Rejected"
         leave_request.manager_comment = request.form.get("comment", "")
         db.session.commit()
+
+        send_email(
+            to_email=leave_request.user.email,
+            subject="Your leave request was rejected",
+            body=f"Your {leave_request.leave_type} leave request from {leave_request.start_date} to {leave_request.end_date} was rejected.\n\nComment: {leave_request.manager_comment}"
+        )
+
         return redirect("/manage")
 
     @app.route("/holidays", methods=["GET", "POST"])

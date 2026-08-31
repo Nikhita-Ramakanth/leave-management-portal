@@ -1000,3 +1000,33 @@ def test_cannot_invite_with_manager_at_lower_or_equal_level(client):
     with client.application.app_context():
         from app import Invite
         assert Invite.query.filter_by(email="newsenior@test.com").first() is None
+
+def test_home_redirects_manager_to_manage_page(client):
+    register(client, "Notify Manager", "notifymanager@test.com", "pass12345", "Manager")
+    login(client, "notifymanager@test.com", "pass12345")
+
+    register(client, "Notify Employee", "notifyemployee@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        manager = User.query.filter_by(email="notifymanager@test.com").first()
+        employee = User.query.filter_by(email="notifyemployee@test.com").first()
+        employee.manager_id = manager.id
+        db.session.commit()
+
+    login(client, "notifymanager@test.com", "pass12345")
+    response = client.get("/")
+    assert response.status_code == 302
+    assert "/manage" in response.location
+
+
+def test_apply_without_manager_does_not_error(client):
+    register(client, "Top Of Hierarchy", "topofhierarchy@test.com", "pass12345", "Head of Practice")
+    login(client, "topofhierarchy@test.com", "pass12345")
+
+    response = client.post("/apply", data={
+        "leave_type": "Casual",
+        "start_date": "2026-08-03",
+        "end_date": "2026-08-03",
+        "reason": "No manager to notify"
+    })
+
+    assert response.status_code == 302

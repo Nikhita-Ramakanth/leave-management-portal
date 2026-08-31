@@ -9,12 +9,12 @@
 <body>
     <div class="topbar">
         <div class="topbar-inner">
-            <div class="brand">
+            <a href="/" class="brand" style="text-decoration: none;">
                 <div class="brand-mark">
                     <svg width="16" height="16" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#4F46E5" stroke-width="2"/><path d="M10 5.5 L10 10 L13.5 12" stroke="#4F46E5" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
                 </div>
                 Leavepoint
-            </div>
+            </a>
             {% if current_user.is_authenticated and current_user.is_super_admin %}
             <div class="nav-spacer"></div>
             <div class="nav-links">
@@ -24,11 +24,10 @@
             </div>
             {% elif current_user.is_authenticated %}
             <div class="nav-links">
-                <a href="/">Home</a>
-                <a href="/apply">Apply for leave</a>
-                <a href="/requests">Requests</a>
+                <a href="/apply">Apply for Leave</a>
+                <a href="/requests">All Requests</a>
                 {% if current_user.team_members %}
-                <a href="/manage">Manage requests</a>
+                <a href="/manage">Manage Requests</a>
                 {% endif %}
                 {% if current_user.role == "Admin" %}
                 <a href="/holidays">Holidays</a>
