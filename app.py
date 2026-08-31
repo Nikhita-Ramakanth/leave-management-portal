@@ -360,7 +360,9 @@ def create_app(test_config=None):
             User.id != current_user.id,
             User.organization_id == current_user.organization_id
         ).all()
-        return render_template("manage_users.html", users=all_users)
+        org_roles = OrgRole.query.filter_by(organization_id=current_user.organization_id).order_by(OrgRole.level.desc()).all()
+        org_practices = OrgPractice.query.filter_by(organization_id=current_user.organization_id).order_by(OrgPractice.name).all()
+        return render_template("manage_users.html", users=all_users, org_roles=org_roles, org_practices=org_practices)
 
     @app.route("/users/<int:user_id>/reassign", methods=["POST"])
     @login_required
@@ -393,6 +395,46 @@ def create_app(test_config=None):
         if user_to_promote is None:
             return error_response("User not found", 404)
         user_to_promote.role = "Admin"
+        db.session.commit()
+        return redirect("/users")
+
+    @app.route("/users/<int:user_id>/update", methods=["POST"])
+    @login_required
+    def update_user(user_id):
+        if current_user.role != "Admin":
+            return error_response("Access denied - Admins only", 403)
+        user_to_update = db.session.get(User, user_id)
+        if user_to_update is None:
+            return error_response("User not found", 404)
+
+        new_email = request.form["email"]
+        existing = User.query.filter(User.email == new_email, User.id != user_to_update.id).first()
+        if existing:
+            return error_response("An account with this email already exists", 400)
+
+        org_role = db.session.get(OrgRole, int(request.form["org_role_id"]))
+        if org_role is None or org_role.organization_id != current_user.organization_id:
+            return error_response("Invalid role selection", 400)
+
+        org_practice_id = request.form.get("org_practice_id") or None
+        manager_id = request.form.get("manager_id") or None
+
+        if manager_id:
+            if int(manager_id) == user_to_update.id:
+                return error_response("A user cannot report to themselves", 400)
+            new_manager = db.session.get(User, int(manager_id))
+            if new_manager is None or new_manager.role == "Admin":
+                return error_response("Invalid manager selection", 400)
+            submitted_practice_id = int(org_practice_id) if org_practice_id else None
+            if new_manager.org_practice_id != submitted_practice_id:
+                return error_response("Invalid selection: manager must belong to the same department", 400)
+            if new_manager.org_role is None or new_manager.org_role.level <= org_role.level:
+                return error_response("Invalid selection: manager must be at a higher level", 400)
+
+        user_to_update.email = new_email
+        user_to_update.org_role_id = org_role.id
+        user_to_update.org_practice_id = org_practice_id
+        user_to_update.manager_id = manager_id
         db.session.commit()
         return redirect("/users")
 

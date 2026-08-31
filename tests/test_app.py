@@ -1030,3 +1030,97 @@ def test_apply_without_manager_does_not_error(client):
     })
 
     assert response.status_code == 302
+
+def test_admin_can_update_user_details(client):
+    register(client, "Update Admin", "updateadmin@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        from app import Organization, OrgRole, OrgPractice, db
+        admin = User.query.filter_by(email="updateadmin@test.com").first()
+        admin.role = "Admin"
+        org_id = admin.organization_id
+        db.session.commit()
+
+        junior_role = OrgRole(organization_id=org_id, title="Junior", level=1)
+        senior_role = OrgRole(organization_id=org_id, title="Senior", level=2)
+        dept = OrgPractice(organization_id=org_id, name="Ops")
+        db.session.add_all([junior_role, senior_role, dept])
+        db.session.commit()
+        senior_role_id = senior_role.id
+        dept_id = dept.id
+
+    register(client, "Update Target", "updatetarget@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        target = User.query.filter_by(email="updatetarget@test.com").first()
+        target_id = target.id
+
+    login(client, "updateadmin@test.com", "pass12345")
+
+    response = client.post(f"/users/{target_id}/update", data={
+        "email": "newemail@test.com",
+        "org_role_id": senior_role_id,
+        "org_practice_id": dept_id
+    })
+    assert response.status_code == 302
+
+    with client.application.app_context():
+        updated = db.session.get(User, target_id)
+        assert updated.email == "newemail@test.com"
+        assert updated.org_role_id == senior_role_id
+        assert updated.org_practice_id == dept_id
+
+
+def test_promotion_preserves_existing_reports(client):
+    register(client, "Promo Admin", "promoadmin@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        from app import Organization, OrgRole, db
+        admin = User.query.filter_by(email="promoadmin@test.com").first()
+        admin.role = "Admin"
+        org_id = admin.organization_id
+        db.session.commit()
+
+        junior_role = OrgRole(organization_id=org_id, title="Junior", level=1)
+        senior_role = OrgRole(organization_id=org_id, title="Senior", level=2)
+        db.session.add_all([junior_role, senior_role])
+        db.session.commit()
+        junior_role_id = junior_role.id
+        senior_role_id = senior_role.id
+
+    register(client, "Being Promoted", "beingpromoted@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        promoted_user = User.query.filter_by(email="beingpromoted@test.com").first()
+        promoted_user.org_role_id = junior_role_id
+        promoted_id = promoted_user.id
+        db.session.commit()
+
+    register(client, "Existing Report", "existingreport@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        report = User.query.filter_by(email="existingreport@test.com").first()
+        report.manager_id = promoted_id
+        report_id = report.id
+        db.session.commit()
+
+    login(client, "promoadmin@test.com", "pass12345")
+
+    response = client.post(f"/users/{promoted_id}/update", data={
+        "email": "beingpromoted@test.com",
+        "org_role_id": senior_role_id
+    })
+    assert response.status_code == 302
+
+    with client.application.app_context():
+        still_reporting = db.session.get(User, report_id)
+        assert still_reporting.manager_id == promoted_id
+
+
+def test_non_admin_cannot_update_user(client):
+    register(client, "Regular User5", "regularuser5b@test.com", "pass12345", "Employee")
+    register(client, "Target User2", "targetuser2@test.com", "pass12345", "Employee")
+    with client.application.app_context():
+        target_id = User.query.filter_by(email="targetuser2@test.com").first().id
+
+    login(client, "regularuser5b@test.com", "pass12345")
+    response = client.post(f"/users/{target_id}/update", data={
+        "email": "hacked@test.com",
+        "org_role_id": 1
+    })
+    assert response.status_code == 403

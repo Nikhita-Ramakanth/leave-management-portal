@@ -2,41 +2,58 @@
 {% block title %}Manage users — Leavepoint{% endblock %}
 {% block content %}
 
-<div class="card">
+<div class="page-wide">
     <h1>Manage users</h1>
-    <p class="subtitle">Assign or update who each person reports to.</p>
+    <p class="subtitle">Update email, role, department, or who each person reports to.</p>
 
-    <table>
-        <tr>
-            <th>Name</th>
-            <th>Role</th>
-            <th>Practice</th>
-            <th>Currently reports to</th>
-            <th>Reassign</th>
-        </tr>
+    <div class="org-list">
         {% for u in users %}
-        <tr>
-            <td>{{ u.name }}</td>
-            <td>{{ u.role }}</td>
-            <td>{{ u.practice or "—" }}</td>
-            <td>{{ u.manager.name if u.manager else "—" }}</td>
-            <td>
-                <form method="POST" action="/users/{{ u.id }}/reassign" style="display: flex; gap: 8px; margin-bottom: 6px;">
-                    <select name="manager_id" style="margin-bottom: 0;">
-                        <option value="">None / top of hierarchy</option>
-                        {% for m in users %}
-                            {% if m.id != u.id and m.role not in ["Employee", "Admin"] and m.practice == u.practice %}
-                            <option value="{{ m.id }}" {% if u.manager_id == m.id %}selected{% endif %}>{{ m.name }} ({{ m.role }})</option>
-                            {% endif %}
-                        {% endfor %}
-                    </select>
-                    <button type="submit">Save</button>
-                </form>
-                
-            </td>
-        </tr>
+        <div class="card" style="margin-bottom: 0;">
+            <h3 style="margin-bottom: 16px;">{{ u.name }}</h3>
+            <form method="POST" action="/users/{{ u.id }}/update">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                    <div>
+                        <label for="email-{{ u.id }}">Email</label>
+                        <input type="email" id="email-{{ u.id }}" name="email" value="{{ u.email }}" required>
+                    </div>
+
+                    <div>
+                        <label for="org_role_id-{{ u.id }}">Role</label>
+                        <select id="org_role_id-{{ u.id }}" name="org_role_id" required>
+                            {% for role in org_roles %}
+                            <option value="{{ role.id }}" {% if u.org_role_id == role.id %}selected{% endif %}>{{ role.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="org_practice_id-{{ u.id }}">Department</label>
+                        <select id="org_practice_id-{{ u.id }}" name="org_practice_id">
+                            <option value="">None</option>
+                            {% for practice in org_practices %}
+                            <option value="{{ practice.id }}" {% if u.org_practice_id == practice.id %}selected{% endif %}>{{ practice.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="manager_id-{{ u.id }}">Reports to</label>
+                        <select id="manager_id-{{ u.id }}" name="manager_id">
+                            <option value="">None / top of hierarchy</option>
+                            {% for m in users %}
+                                {% if m.id != u.id and m.role != "Admin" %}
+                                <option value="{{ m.id }}" {% if u.manager_id == m.id %}selected{% endif %}>{{ m.name }} ({{ m.org_role.title if m.org_role else "—" }})</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" style="margin-top: 16px;">Save changes</button>
+            </form>
+        </div>
         {% endfor %}
-    </table>
+    </div>
 </div>
 
 {% endblock %}
