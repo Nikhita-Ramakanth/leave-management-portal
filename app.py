@@ -85,6 +85,15 @@ class Invite(db.Model):
     manager_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     manager = db.relationship("User", foreign_keys=[manager_id])
 
+class PasswordReset(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(64), unique=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    user = db.relationship("User")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, nullable=False, default=False)
+
 class Holiday(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.String(20), unique=True, nullable=False)
@@ -652,6 +661,50 @@ def create_app(test_config=None):
             org_roles=org_roles,
             org_practices=org_practices
         )
+    @app.route("/forgot-password", methods=["GET", "POST"])
+    def forgot_password():
+        if request.method == "POST":
+            user = User.query.filter_by(email=request.form["email"]).first()
+            if user:
+                import secrets as secrets_module
+                token = secrets_module.token_urlsafe(32)
+                reset = PasswordReset(
+                    token=token,
+                    user_id=user.id,
+                    expires_at=datetime.utcnow() + timedelta(hours=1)
+                )
+                db.session.add(reset)
+                db.session.commit()
+                reset_link = f"{request.host_url}reset-password?token={token}"
+                send_email(
+                    to_email=user.email,
+                    subject="Reset your Leavepoint password",
+                    body=f"Hi {user.name},\n\nClick the link below to reset your password. This link expires in 1 hour.\n\n{reset_link}\n\nIf you didn't request this, you can safely ignore this email."
+                )
+            return render_template("forgot_password.html", submitted=True)
+        return render_template("forgot_password.html", submitted=False)
+
+    @app.route("/reset-password", methods=["GET", "POST"])
+    def reset_password():
+        token = request.args.get("token") or request.form.get("token")
+        reset = PasswordReset.query.filter_by(token=token).first() if token else None
+
+        if reset is None or reset.used or reset.expires_at < datetime.utcnow():
+            return render_template("invite_invalid.html"), 400
+
+        if request.method == "POST":
+            if request.form["password"] != request.form["confirm_password"]:
+                return error_response("Passwords do not match", 400)
+            if len(request.form["password"]) < 8:
+                return error_response("Password must be at least 8 characters", 400)
+
+            reset.user.password_hash = generate_password_hash(request.form["password"])
+            reset.used = True
+            db.session.commit()
+            return redirect("/login")
+
+        return render_template("reset_password.html", token=token)
+
     
     @app.cli.command("create-admin")
     def create_admin():

@@ -3,7 +3,10 @@ from app import create_app, db, LeaveRequest, User
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
+    monkeypatch.delenv("SMTP_EMAIL", raising=False)
+    monkeypatch.delenv("SMTP_APP_PASSWORD", raising=False)
+
     app = create_app({
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"
@@ -1124,3 +1127,67 @@ def test_non_admin_cannot_update_user(client):
         "org_role_id": 1
     })
     assert response.status_code == 403
+
+def test_forgot_password_shows_same_message_regardless_of_email(client):
+    response_real = client.post("/forgot-password", data={"email": "someone@test.com"})
+    response_fake = client.post("/forgot-password", data={"email": "doesnotexist@test.com"})
+    assert response_real.status_code == 200
+    assert response_fake.status_code == 200
+    assert response_real.data == response_fake.data
+
+
+def test_forgot_password_creates_reset_token_for_real_user(client):
+    register(client, "Reset Test User", "resettestuser@test.com", "pass12345", "Employee")
+
+    client.post("/forgot-password", data={"email": "resettestuser@test.com"})
+
+    with client.application.app_context():
+        from app import PasswordReset
+        reset = PasswordReset.query.join(User).filter(User.email == "resettestuser@test.com").first()
+        assert reset is not None
+        assert reset.used is False
+
+
+def test_reset_password_with_valid_token_updates_password(client):
+    register(client, "Reset Flow User", "resetflowuser@test.com", "pass12345", "Employee")
+    client.post("/forgot-password", data={"email": "resetflowuser@test.com"})
+
+    with client.application.app_context():
+        from app import PasswordReset
+        reset = PasswordReset.query.join(User).filter(User.email == "resetflowuser@test.com").first()
+        token = reset.token
+
+    response = client.post("/reset-password", data={
+        "token": token,
+        "password": "newpassword123",
+        "confirm_password": "newpassword123"
+    })
+    assert response.status_code == 302
+
+    login_response = login(client, "resetflowuser@test.com", "newpassword123")
+    assert login_response.status_code == 302
+    assert login_response.location == "/"
+
+
+def test_reset_password_token_cannot_be_reused(client):
+    register(client, "Reuse Test User", "reusetestuser@test.com", "pass12345", "Employee")
+    client.post("/forgot-password", data={"email": "reusetestuser@test.com"})
+
+    with client.application.app_context():
+        from app import PasswordReset
+        reset = PasswordReset.query.join(User).filter(User.email == "reusetestuser@test.com").first()
+        token = reset.token
+
+    client.post("/reset-password", data={
+        "token": token,
+        "password": "firstpassword123",
+        "confirm_password": "firstpassword123"
+    })
+
+    response = client.get(f"/reset-password?token={token}")
+    assert response.status_code == 400
+
+
+def test_reset_password_with_invalid_token_rejected(client):
+    response = client.get("/reset-password?token=not-a-real-token")
+    assert response.status_code == 400
